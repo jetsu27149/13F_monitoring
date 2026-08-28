@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from collections import defaultdict
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -34,10 +35,24 @@ from thirteenf.analytics import (
     totals_by_category as analytics_totals_by_category,
     turnover_proxy as analytics_turnover_proxy,
 )
+from thirteenf.refresh import run_incremental_refresh, user_agent_looks_unset
 from thirteenf.sec_client import SecClient, SecClientError
 
 
 QUARTER_CACHE: dict[str, dict[str, Any]] = {}
+
+# Guards REFRESH_STATE. A refresh rewrites dashboard.json in place, so only one
+# may run at a time; a second click must join the running job, not start another.
+REFRESH_LOCK = threading.Lock()
+REFRESH_STATE: dict[str, Any] = {
+    "state": "idle",  # idle | running | done | error
+    "progress": 0.0,
+    "message": "",
+    "started_at": None,
+    "finished_at": None,
+    "summary": None,
+    "error": None,
+}
 
 
 def load_env_file(path: Path) -> None:
@@ -85,6 +100,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 return
             if path == "/api/check-filings":
                 self.send_json(handle_check_filings(payload))
+                return
+            if path == "/api/refresh-filings":
+                self.send_json(handle_refresh_filings(payload))
+                return
+            if path == "/api/refresh-status":
+                self.send_json(handle_refresh_status())
                 return
             if path == "/api/quarter":
                 self.send_json(handle_quarter(payload))
@@ -181,6 +202,107 @@ def handle_earnings(payload: dict[str, Any]) -> dict[str, Any]:
         return {"error": public_error_message(exc)}
 
 
+def refresh_snapshot() -> dict[str, Any]:
+    """A copy of the current refresh job state, safe to serialise."""
+    with REFRESH_LOCK:
+        return dict(REFRESH_STATE)
+
+
+def handle_refresh_status() -> dict[str, Any]:
+    return refresh_snapshot()
+
+
+def handle_refresh_filings(payload: dict[str, Any]) -> dict[str, Any]:
+    """Start a background download of any filings SEC has that we do not.
+
+    Returns immediately. The browser polls /api/refresh-status for progress,
+    which keeps a slow multi-investor pull from tripping request timeouts.
+    """
+    investor_slugs = requested_investor_slugs(payload)
+    investors = load_json(ROOT / "investors.json")
+    if investor_slugs is not None:
+        selected = set(investor_slugs)
+        investors = [investor for investor in investors if investor.get("slug") in selected]
+    if not investors:
+        return {"error": "No matching investor found to refresh.", "started": False}
+
+    user_agent = os.environ.get("SEC_USER_AGENT", DEFAULT_USER_AGENT)
+    quarters = max(1, min(int(payload.get("quarters") or 4), 40))
+
+    with REFRESH_LOCK:
+        if REFRESH_STATE["state"] == "running":
+            return {"started": False, "already_running": True, **REFRESH_STATE}
+        REFRESH_STATE.update(
+            {
+                "state": "running",
+                "progress": 0.0,
+                "message": f"Checking SEC for {len(investors)} investor(s)...",
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "finished_at": None,
+                "summary": None,
+                "error": None,
+            }
+        )
+
+    thread = threading.Thread(
+        target=run_refresh_job,
+        args=(investors, user_agent, quarters),
+        name="13f-refresh",
+        daemon=True,
+    )
+    thread.start()
+    return {
+        "started": True,
+        "investors": len(investors),
+        "user_agent_unset": user_agent_looks_unset(user_agent),
+        **refresh_snapshot(),
+    }
+
+
+def run_refresh_job(investors: list[dict[str, Any]], user_agent: str, quarters: int) -> None:
+    """Background worker: download new filings and rebuild the dashboard."""
+
+    def progress(fraction: float, message: str) -> None:
+        with REFRESH_LOCK:
+            REFRESH_STATE["progress"] = max(0.0, min(1.0, float(fraction)))
+            REFRESH_STATE["message"] = message
+
+    try:
+        summary = run_incremental_refresh(
+            root=ROOT,
+            investors=investors,
+            user_agent=user_agent,
+            quarters=quarters,
+            progress=progress,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface any failure to the browser
+        with REFRESH_LOCK:
+            REFRESH_STATE.update(
+                {
+                    "state": "error",
+                    "error": public_error_message(exc),
+                    "message": "Refresh failed.",
+                    "finished_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        return
+
+    # dashboard.json was rewritten, so any per-quarter slices we cached are stale.
+    if summary.get("rebuilt"):
+        QUARTER_CACHE.clear()
+
+    with REFRESH_LOCK:
+        REFRESH_STATE.update(
+            {
+                "state": "done",
+                "progress": 1.0,
+                "message": summary.get("message") or REFRESH_STATE.get("message") or "Refresh complete.",
+                "summary": summary,
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+
 def handle_check_filings(payload: dict[str, Any]) -> dict[str, Any]:
     investor_slugs = requested_investor_slugs(payload)
     investors = load_json(ROOT / "investors.json")
@@ -256,6 +378,7 @@ def handle_check_filings(payload: dict[str, Any]) -> dict[str, Any]:
         "checked_count": len(results),
         "new_count": new_count,
         "error_count": error_count,
+        "user_agent_unset": user_agent_looks_unset(os.environ.get("SEC_USER_AGENT", DEFAULT_USER_AGENT)),
         "results": results,
     }
 
@@ -846,6 +969,14 @@ def main() -> int:
     url = f"http://127.0.0.1:{args.port}/dashboard/"
     print(f"Serving 13F dashboard at {url}")
     print("Optional env vars: OPENAI_API_KEY, OPENAI_MODEL, FMP_API_KEY, FINNHUB_API_KEY")
+    if user_agent_looks_unset(os.environ.get("SEC_USER_AGENT", DEFAULT_USER_AGENT)):
+        print(
+            "\n  WARNING: SEC_USER_AGENT is not set, so requests go out as\n"
+            f'    "{DEFAULT_USER_AGENT}"\n'
+            "  SEC rejects clients that do not give a working contact address, so filing\n"
+            "  checks and downloads will fail. Add this to your .env and restart:\n"
+            '    SEC_USER_AGENT="13F Monitoring local dashboard your-real-email@example.com"\n'
+        )
     if not args.no_open:
         open_error = open_in_chrome(url)
         if open_error:

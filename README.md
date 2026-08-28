@@ -58,6 +58,25 @@ The dashboard lives at `http://127.0.0.1:8013/dashboard/`. On macOS the server
 opens it in a new Google Chrome window; everywhere else it prints the URL for
 you to open yourself. Pass `--no-open` to skip the launch entirely.
 
+## Keeping data current
+
+The **Check filings** button asks SEC EDGAR whether each selected investor has
+filed since your last pull. If it finds something new, it downloads those
+filings, rebuilds the dashboard, and reloads the page — no terminal round trip.
+
+Only missing filings are fetched. Accession numbers already stored under
+`data/raw/` are skipped, and the rebuild reuses those already-parsed rows rather
+than re-reading every cached XML file, so a quarterly top-up takes a fraction of
+the time a cold `refresh_data.py` run does. If nothing is new, nothing is
+rewritten.
+
+The rebuild always runs across the full investor registry even when you refresh
+one filer, because concentration, shared ownership, and the watchlist are all
+cross-investor measures.
+
+`refresh_data.py` is still the tool for a cold start or a deliberate full
+re-pull.
+
 **No data ships with this repo.** A full pull runs to roughly 1.6 GB, so `data/`
 is git-ignored and `refresh_data.py` is what populates it. Expect the first real
 pull to take a while — SEC rate limits apply, and `--quarters` defaults to 20.
@@ -158,6 +177,17 @@ This matters more than any feature in the dashboard:
 The watchlist is a research queue. It is not a recommendation, and nothing here
 is investment advice.
 
+## Tests
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+The suite covers the incremental refresh path with the SEC network edge stubbed:
+accession bookkeeping, skipping filings already on disk, the no-op second run,
+rebuilding across the full registry from a partial refresh, and surviving a
+corrupt cached file.
+
 ## Project layout
 
 ```text
@@ -166,13 +196,16 @@ dashboard/          Static front end
   styles.css
   app.js
 scripts/
-  refresh_data.py       Pulls and rebuilds data/processed/
-  dashboard_server.py   Local server plus the Research tab API
+  refresh_data.py       Full pull and rebuild of data/processed/
+  dashboard_server.py   Local server, Research tab API, refresh jobs
 src/thirteenf/
   sec_client.py         EDGAR fetching and response caching
   parser.py             Information-table XML to holdings
   analytics.py          Deltas, concentration, watchlist scoring
+  refresh.py            Incremental download and rebuild
   sample_data.py        Deterministic demo data for --sample runs
+tests/
+  test_refresh.py       Refresh logic against a stubbed SEC client
 investors.json      The registry of tracked filers
 data/                Generated, git-ignored
 ```

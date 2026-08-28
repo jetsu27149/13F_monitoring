@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from thirteenf.analytics import build_dashboard_data
 from thirteenf.parser import parse_information_table
+from thirteenf.refresh import flatten_row, write_csv, write_json
 from thirteenf.sample_data import generate_sample_holdings
 from thirteenf.sec_client import SecClient, SecClientError
 
@@ -125,40 +126,6 @@ def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) ->
 
 def load_investors(path: Path) -> list[dict[str, Any]]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def write_json(path: Path, data: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-
-
-def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not rows:
-        path.write_text("", encoding="utf-8")
-        return
-
-    fieldnames: list[str] = []
-    for row in rows:
-        for key in row:
-            if key not in fieldnames:
-                fieldnames.append(key)
-
-    with path.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(flatten_row(row))
-
-
-def flatten_row(row: dict[str, Any]) -> dict[str, Any]:
-    flattened = {}
-    for key, value in row.items():
-        if isinstance(value, (list, dict)):
-            flattened[key] = json.dumps(value)
-        else:
-            flattened[key] = value
-    return flattened
 
 
 if __name__ == "__main__":

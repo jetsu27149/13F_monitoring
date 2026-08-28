@@ -408,7 +408,7 @@ function mergeQuarterData(payload) {
 
 function resetFilingCheckStatus() {
   if (!els.filingCheckStatus) return;
-  els.filingCheckStatus.textContent = "Compare SEC with local data";
+  els.filingCheckStatus.textContent = "Check SEC and download new filings";
   els.filingCheckStatus.title = "";
 }
 
@@ -1358,25 +1358,104 @@ async function checkLatestFilings() {
     const newFilings = results.filter((item) => item.new_available);
     const errors = results.filter((item) => item.error);
     const checkedLabel = payload.checked_at ? `Checked ${formatDateTime(payload.checked_at).replace("Updated ", "")}` : "Checked SEC";
+    status.title = results.map(filingCheckLine).join("\n");
 
     if (newFilings.length) {
-      const names = newFilings
-        .slice(0, 2)
-        .map((item) => `${item.investor}: ${item.sec_report_date} filed ${item.sec_filing_date}`)
-        .join("; ");
-      const extra = newFilings.length > 2 ? `; ${newFilings.length - 2} more` : "";
-      status.textContent = `${newFilings.length} new filing${newFilings.length === 1 ? "" : "s"} found. ${names}${extra}`;
-    } else if (errors.length) {
-      status.textContent = `No new filings found; ${errors.length} SEC check error${errors.length === 1 ? "" : "s"}.`;
-    } else {
-      status.textContent = `No new filings. ${checkedLabel}`;
+      // Something new exists upstream, so download it rather than just reporting it.
+      await downloadNewFilings(newFilings, status);
+      return;
     }
-    status.title = results.map(filingCheckLine).join("\n");
+
+    if (errors.length) {
+      status.textContent = payload.user_agent_unset
+        ? `SEC rejected ${errors.length} request${errors.length === 1 ? "" : "s"}. Set SEC_USER_AGENT in .env and restart the server.`
+        : `No new filings found; ${errors.length} SEC check error${errors.length === 1 ? "" : "s"}. Hover for detail.`;
+      return;
+    }
+
+    status.textContent = `No new filings. ${checkedLabel}`;
   } catch (error) {
     status.textContent = `Filing check failed: ${error.message}`;
   } finally {
     button.disabled = false;
   }
+}
+
+async function downloadNewFilings(newFilings, status) {
+  const checkDetail = status.title;
+  const names = newFilings
+    .slice(0, 2)
+    .map((item) => `${item.investor} ${item.sec_report_date}`)
+    .join(", ");
+  const extra = newFilings.length > 2 ? ` +${newFilings.length - 2} more` : "";
+  status.textContent = `${newFilings.length} new filing${newFilings.length === 1 ? "" : "s"} (${names}${extra}). Downloading...`;
+
+  const slugs = newFilings.map((item) => item.investor_slug).filter(Boolean);
+  const start = await fetch("/api/refresh-filings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      investor_slugs: slugs,
+      investor_slug: slugs.length === 1 ? slugs[0] : "all",
+    }),
+  }).then((response) => response.json());
+
+  if (start.error) throw new Error(start.error);
+
+  const summary = await pollRefresh(status);
+  if (!summary) return;
+
+  if (summary.rebuilt) {
+    status.textContent = "Download complete. Reloading dashboard...";
+    await reloadDashboardData();
+    const added = summary.filings_added || 0;
+    status.textContent = `Downloaded ${added} filing${added === 1 ? "" : "s"} and refreshed the dashboard.`;
+  } else {
+    status.textContent = "SEC reported new filings but none could be downloaded. Hover for detail.";
+  }
+
+  const problems = summary.errors || [];
+  status.title = problems.length ? `${checkDetail}\n\nDownload issues:\n${problems.join("\n")}` : checkDetail;
+}
+
+async function pollRefresh(status) {
+  // Rebuilding reads every cached filing, so this can run for minutes. Poll for
+  // progress instead of holding one request open and risking a browser timeout.
+  const deadline = Date.now() + 30 * 60 * 1000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    let job;
+    try {
+      job = await fetch("/api/refresh-status", { method: "POST" }).then((response) => response.json());
+    } catch (error) {
+      continue; // transient, keep polling
+    }
+    if (job.state === "running") {
+      const percent = Math.round((job.progress || 0) * 100);
+      status.textContent = `${job.message || "Working"} (${percent}%)`;
+      continue;
+    }
+    if (job.state === "error") {
+      status.textContent = `Download failed: ${job.error || "unknown error"}`;
+      return null;
+    }
+    if (job.state === "done") return job.summary || {};
+  }
+  status.textContent = "Download is still running. Check the server console.";
+  return null;
+}
+
+async function reloadDashboardData() {
+  const response = await fetch("../data/processed/dashboard.json", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  state.baseData = await response.json();
+  state.quarterCache = {};
+  state.changeIndex = null;
+  state.reportDate = "latest";
+  state.data = state.baseData;
+  populateInvestorFilter();
+  populateReportDateFilter();
+  render();
 }
 
 function filingCheckLine(item) {
