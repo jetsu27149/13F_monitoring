@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+
+# Generated data. The full tree runs to ~1.6GB and dashboard.json alone is
+# ~97MB, which is over GitHub's 100MB per-file limit. Regenerate it locally
+# with `python3 scripts/refresh_data.py` instead of committing it.
+data/
+
+*.log
+
+# Scratch
+_to_delete/

@@ -1,0 +1,335 @@
+[
+  {
+    "slug": "baupost",
+    "investor": "Seth Klarman",
+    "manager": "BAUPOST GROUP LLC/MA",
+    "cik": "0001061768",
+    "style": "Deep value, distressed, concentrated",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "Use 13F as a partial view; Baupost can hold material cash, debt, private, and non-US positions outside 13F."
+  },
+  {
+    "slug": "tci",
+    "investor": "Chris Hohn",
+    "manager": "TCI FUND MANAGEMENT LTD",
+    "cik": "0001647251",
+    "style": "Concentrated quality compounders, activist/engagement bias",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "13F captures US-listed long holdings and misses many non-US positions."
+  },
+  {
+    "slug": "appaloosa",
+    "investor": "David Tepper",
+    "manager": "APPALOOSA LP",
+    "cik": "0001656456",
+    "style": "Opportunistic value, distressed, macro-aware equity book",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "Tepper's 13F can move quickly; macro and private/cash exposure are not visible."
+  },
+  {
+    "slug": "tiger-global",
+    "investor": "Chase Coleman",
+    "manager": "TIGER GLOBAL MANAGEMENT LLC",
+    "cik": "0001167483",
+    "style": "Growth, internet/software, public-private crossover",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "13F excludes private growth investments and short exposure."
+  },
+  {
+    "slug": "cooperman",
+    "investor": "Leon Cooperman",
+    "manager": "COOPERMAN LEON G",
+    "cik": "0000898382",
+    "style": "Value, income, energy/financials bias, family-office style",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "Omega Advisors converted to a family-office structure; track current 13F filer name."
+  },
+  {
+    "slug": "lone-pine",
+    "investor": "Stephen Mandel",
+    "manager": "LONE PINE CAPITAL LLC",
+    "cik": "0001061165",
+    "style": "Quality growth, consumer/internet/software",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "13F is useful for the public long book but not the full risk book."
+  },
+  {
+    "slug": "tudor",
+    "investor": "Paul Tudor Jones",
+    "manager": "TUDOR INVESTMENT CORP ET AL",
+    "cik": "0000923093",
+    "style": "Macro and trading-oriented multi-strategy book",
+    "dataroma_url": null,
+    "notes": "Track directly from SEC filings. The 13F can be very broad and may not represent core macro trades."
+  },
+  {
+    "slug": "durable",
+    "investor": "Henry Ellenbogen",
+    "manager": "DURABLE CAPITAL PARTNERS LP",
+    "cik": "0001798849",
+    "style": "Long-term growth, public-private crossover",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "Name normalized to Henry Ellenbogen. Private company exposure is not in 13F."
+  },
+  {
+    "slug": "pershing-square",
+    "investor": "Bill Ackman",
+    "manager": "PERSHING SQUARE CAPITAL MANAGEMENT, L.P.",
+    "cik": "0001336528",
+    "style": "Highly concentrated activist/value-quality",
+    "dataroma_url": "https://www.dataroma.com/m/home.php",
+    "notes": "Portfolio is very concentrated; 13F should be paired with Pershing Square letters/presentations."
+  },
+  {
+    "slug": "duquesne",
+    "investor": "Stan Druckenmiller",
+    "manager": "DUQUESNE FAMILY OFFICE LLC",
+    "cik": "0001536411",
+    "style": "Opportunistic macro/growth, flexible family-office book",
+    "dataroma_url": null,
+    "notes": "Track directly from SEC filings. 13F does not reveal macro, FX, rates, shorts, or complete derivatives exposure."
+  },
+  {
+    "slug": "millennium-management",
+    "investor": "Millennium Management",
+    "manager": "MILLENNIUM MANAGEMENT LLC",
+    "cik": "0001273087",
+    "style": "Multi-manager, multi-strategy, market-neutral and relative-value oriented",
+    "dataroma_url": null,
+    "notes": "Very broad 13F book; treat individual positions as aggregated manager exposure rather than one portfolio manager's conviction."
+  },
+  {
+    "slug": "citadel-advisors",
+    "investor": "Citadel",
+    "manager": "CITADEL ADVISORS LLC",
+    "cik": "0001423053",
+    "style": "Multi-strategy platform with equities, quant, relative value, and options activity",
+    "dataroma_url": null,
+    "notes": "13F can include a very large options book and many hedging positions, so separate equity and options views are especially important."
+  },
+  {
+    "slug": "point72",
+    "investor": "Point72 Asset Management",
+    "manager": "Point72 Asset Management, L.P.",
+    "cik": "0001603466",
+    "style": "Multi-manager equity long/short platform",
+    "dataroma_url": null,
+    "notes": "Aggregates many teams and strategies; 13F holdings should be read as platform-level exposure, not a single stock-picking style."
+  },
+  {
+    "slug": "coatue",
+    "investor": "Coatue Management",
+    "manager": "COATUE MANAGEMENT LLC",
+    "cik": "0001135730",
+    "style": "Technology and growth-oriented public-private crossover",
+    "dataroma_url": null,
+    "notes": "Private investments and non-13F exposures can be material, so the public long book is only part of the strategy."
+  },
+  {
+    "slug": "de-shaw",
+    "investor": "D.E. Shaw",
+    "manager": "D. E. Shaw & Co., Inc.",
+    "cik": "0001009207",
+    "style": "Quantitative, multi-strategy, systematic and discretionary investing",
+    "dataroma_url": null,
+    "notes": "Very large and diversified 13F book; position changes often reflect systematic, hedging, and portfolio-construction activity."
+  },
+  {
+    "slug": "elliott",
+    "investor": "Elliott Management",
+    "manager": "Elliott Investment Management L.P.",
+    "cik": "0001791786",
+    "style": "Activist, event-driven, distressed and special situations",
+    "dataroma_url": null,
+    "notes": "13F captures US long securities, but many event-driven, debt, private, derivative, and international positions can sit outside it."
+  },
+  {
+    "slug": "two-sigma",
+    "investor": "Two Sigma",
+    "manager": "TWO SIGMA INVESTMENTS, LP",
+    "cik": "0001179392",
+    "style": "Quantitative, systematic, diversified equity strategies",
+    "dataroma_url": null,
+    "notes": "Large systematic portfolio; individual 13F positions usually need to be interpreted as factor or model output rather than classic conviction picks."
+  },
+  {
+    "slug": "discovery-capital",
+    "investor": "Discovery Capital Management",
+    "manager": "DISCOVERY CAPITAL MANAGEMENT, LLC / CT",
+    "cik": "0001389507",
+    "style": "Global macro and emerging-markets oriented equity exposure",
+    "dataroma_url": null,
+    "notes": "13F only shows US-reportable long securities and misses macro instruments, country baskets, shorts, cash, FX, and rates positions."
+  },
+  {
+    "slug": "schonfeld",
+    "investor": "Schonfeld Strategic Advisors",
+    "manager": "Schonfeld Strategic Advisors LLC",
+    "cik": "0001665241",
+    "style": "Multi-manager, tactical equity, quant and fundamental strategies",
+    "dataroma_url": null,
+    "notes": "Platform-level 13F exposure can be noisy because many independent teams and hedges are aggregated together."
+  },
+  {
+    "slug": "d1-capital",
+    "investor": "D1 Capital Partners",
+    "manager": "D1 Capital Partners L.P.",
+    "cik": "0001747057",
+    "style": "Concentrated growth and public-private crossover",
+    "dataroma_url": null,
+    "notes": "Private company exposure can be significant and is not visible in 13F filings."
+  },
+  {
+    "slug": "rokos",
+    "investor": "Rokos Capital Management",
+    "manager": "Rokos Capital Management LLP",
+    "cik": "0001666335",
+    "style": "Global macro with selective US 13F-reportable securities",
+    "dataroma_url": null,
+    "notes": "Core macro exposures are mostly outside 13F; visible holdings may be a narrow slice of the risk book."
+  },
+  {
+    "slug": "third-point",
+    "investor": "Daniel Loeb",
+    "manager": "Third Point LLC",
+    "cik": "0001040273",
+    "style": "Event-driven value, activism, special situations and opportunistic credit/equity",
+    "dataroma_url": null,
+    "notes": "Tracked through Third Point LLC, the 13F filer associated with Daniel Loeb."
+  },
+  {
+    "slug": "berkshire",
+    "investor": "Berkshire Hathaway",
+    "manager": "BERKSHIRE HATHAWAY INC",
+    "cik": "0001067983",
+    "style": "Long-term quality/value, insurance-backed capital allocation",
+    "dataroma_url": null,
+    "notes": "Not a hedge fund, but useful as a benchmark for long-horizon concentrated public equity ownership."
+  },
+  {
+    "slug": "whale-rock",
+    "investor": "Whale Rock Capital Management",
+    "manager": "Whale Rock Capital Management LLC",
+    "cik": "0001387322",
+    "style": "Technology, internet, software and growth equities",
+    "dataroma_url": null,
+    "notes": "Normalized from the provided 'Wale Rock' spelling to Whale Rock Capital Management."
+  },
+  {
+    "slug": "aqr",
+    "investor": "AQR Capital Management",
+    "manager": "AQR CAPITAL MANAGEMENT LLC",
+    "cik": "0001167557",
+    "style": "Quantitative, factor-based, alternative risk premia and diversified equities",
+    "dataroma_url": null,
+    "notes": "Very large systematic 13F book; use watchlist and ticker filters to separate signal from broad factor exposure."
+  },
+  {
+    "slug": "bridgewater",
+    "investor": "Bridgewater Associates",
+    "manager": "Bridgewater Associates, LP",
+    "cik": "0001350694",
+    "style": "Global macro, all-weather/risk-parity and diversified systematic allocation",
+    "dataroma_url": null,
+    "notes": "13F captures US-reportable long securities and ETFs, but not the full macro book, swaps, futures, currencies, rates, or shorts."
+  },
+  {
+    "slug": "balyasny",
+    "investor": "Balyasny Asset Management",
+    "manager": "BALYASNY ASSET MANAGEMENT L.P.",
+    "cik": "0001218710",
+    "style": "Multi-manager equity long/short and multi-strategy platform",
+    "dataroma_url": null,
+    "notes": "Platform-level 13F exposure aggregates many teams and may include hedges, so individual rows should not be read as one manager's conviction."
+  },
+  {
+    "slug": "jericho-capital",
+    "investor": "Jericho Capital Asset Management",
+    "manager": "Jericho Capital Asset Management L.P.",
+    "cik": "0001525234",
+    "style": "Technology, media and communications focused long/short equity",
+    "dataroma_url": null,
+    "notes": "Concentrated public equity view; shorts and non-13F instruments are not visible."
+  },
+  {
+    "slug": "caxton",
+    "investor": "Caxton Associates",
+    "manager": "CAXTON ASSOCIATES LLP",
+    "cik": "0002051323",
+    "style": "Global macro and multi-strategy trading-oriented book",
+    "dataroma_url": null,
+    "notes": "Using the newer SEC filer CAXTON ASSOCIATES LLP for latest filings; older CAXTON ASSOCIATES LP filings exist under CIK 0000872573. 13F is only a partial view because core macro instruments, futures, FX, rates, commodities, shorts, and cash are excluded."
+  },
+  {
+    "slug": "icahn",
+    "investor": "Carl Icahn",
+    "manager": "ICAHN CARL C",
+    "cik": "0000921669",
+    "style": "Activist, control-oriented, concentrated value and special situations",
+    "dataroma_url": null,
+    "notes": "Normalized from the provided 'Carl Ichan' spelling to Carl Icahn. 13F should be paired with Schedule 13D/13G and company-specific filings for activism context."
+  },
+  {
+    "slug": "soros-fund",
+    "investor": "Soros",
+    "manager": "SOROS FUND MANAGEMENT LLC",
+    "cik": "0001029160",
+    "style": "Opportunistic macro-aware family-office portfolio with equities, ETFs, converts and event-driven positions",
+    "dataroma_url": null,
+    "notes": "Tracked through Soros Fund Management LLC, the better match for the famous Soros 13F portfolio. Macro exposure is not fully visible in 13F."
+  },
+  {
+    "slug": "maverick-capital",
+    "investor": "Maverick Capital",
+    "manager": "MAVERICK CAPITAL LTD",
+    "cik": "0000934639",
+    "style": "Tiger Cub, fundamental long/short equity, growth/value blend",
+    "dataroma_url": null,
+    "notes": "Lee Ainslie is a Julian Robertson Tiger Cub. 13F shows the public long book and misses shorts, private positions, and portfolio hedges."
+  },
+  {
+    "slug": "greenlight",
+    "investor": "Greenlight Capital",
+    "manager": "GREENLIGHT CAPITAL INC",
+    "cik": "0001079114",
+    "style": "David Einhorn, value and special situations with opportunistic hedging",
+    "dataroma_url": null,
+    "notes": "13F should be paired with Greenlight letters and company-specific filings because shorts, hedges, and thesis details are not visible."
+  },
+  {
+    "slug": "oaktree",
+    "investor": "Oaktree Capital Management",
+    "manager": "OAKTREE CAPITAL MANAGEMENT LP",
+    "cik": "0000949509",
+    "style": "Howard Marks, credit, distressed, special situations and opportunistic value",
+    "dataroma_url": null,
+    "notes": "13F is only a public-equity window into Oaktree; credit, distressed debt, private investments, real assets, derivatives, shorts, cash, and most macro/credit exposures are outside 13F."
+  },
+  {
+    "slug": "renaissance",
+    "investor": "Renaissance Technologies",
+    "manager": "RENAISSANCE TECHNOLOGIES LLC",
+    "cik": "0001037389",
+    "style": "Quantitative, systematic, high-diversification statistical investing",
+    "dataroma_url": null,
+    "notes": "Very broad systematic 13F book. Individual positions often reflect model/factor output rather than a classic discretionary thesis."
+  },
+  {
+    "slug": "viking-global",
+    "investor": "Viking Global",
+    "manager": "VIKING GLOBAL INVESTORS LP",
+    "cik": "0001103804",
+    "style": "Tiger Cub, fundamental long/short equity and public-private growth investing",
+    "dataroma_url": null,
+    "notes": "Andreas Halvorsen is a Julian Robertson Tiger Cub. 13F captures the public long book but not shorts, private exposure, or full risk positioning."
+  },
+  {
+    "slug": "situational-awareness",
+    "investor": "Situational Awareness",
+    "manager": "Situational Awareness LP",
+    "cik": "0002045724",
+    "style": "Leopold Aschenbrenner, AI-focused thematic technology and infrastructure investing",
+    "dataroma_url": null,
+    "notes": "Newer AI-focused hedge fund. 13F can show public long and option exposure, but not shorts, cash, private stakes, or complete portfolio risk."
+  }
+]

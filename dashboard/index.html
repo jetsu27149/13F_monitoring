@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>13F Investor Monitor</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>13F Investor Monitor</h1>
+        <p id="dataStatus">Loading SEC portfolio data...</p>
+      </div>
+      <div class="topbar-actions">
+        <a class="source-link" href="https://www.sec.gov/edgar/search/" target="_blank" rel="noreferrer">SEC EDGAR</a>
+        <a class="source-link" href="https://www.dataroma.com/" target="_blank" rel="noreferrer">Dataroma</a>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Dashboard filters">
+        <label>
+          Ticker / Issuer
+          <input id="searchInput" type="search" placeholder="Ticker or issuer name" autocomplete="off" />
+        </label>
+        <label class="investor-control">
+          Investor
+          <div class="multi-select" id="investorFilter">
+            <button type="button" class="multi-select-button" id="investorFilterButton">All investors</button>
+            <div class="multi-select-panel" id="investorFilterPanel" hidden></div>
+          </div>
+        </label>
+        <label>
+          Quarter
+          <select id="reportDateFilter">
+            <option value="latest">Latest available</option>
+          </select>
+        </label>
+        <label>
+          Status
+          <select id="statusFilter">
+            <option value="all">All changes</option>
+            <option value="new">New</option>
+            <option value="added">Added</option>
+            <option value="reduced">Reduced</option>
+            <option value="exited">Exited</option>
+            <option value="held">Held</option>
+          </select>
+        </label>
+        <label>
+          Rows
+          <select id="rowLimitFilter">
+            <option value="24" selected>24</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+            <option value="all">All (slower)</option>
+          </select>
+        </label>
+        <div class="filing-check-control">
+          <span class="control-label">Filings</span>
+          <button type="button" id="checkFilingsButton">Check filings</button>
+          <span id="filingCheckStatus">Compare SEC with local data</span>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="Dashboard views">
+        <button class="tab active" data-view="overview">Overview</button>
+        <button class="tab" data-view="investors">Investors</button>
+        <button class="tab" data-view="changes">Changes</button>
+        <button class="tab" data-view="watchlist">Watchlist</button>
+        <button class="tab" data-view="research">Research</button>
+        <button class="tab" data-view="readme">Readme</button>
+      </nav>
+
+      <nav class="book-tabs" aria-label="Holding book">
+        <button type="button" class="book-tab category-button active" data-category="equity">Equity</button>
+        <button type="button" class="book-tab category-button" data-category="option">Options</button>
+        <button type="button" class="book-tab category-button" data-category="all">All 13F</button>
+      </nav>
+
+      <section id="overviewView" class="view active"></section>
+      <section id="investorsView" class="view"></section>
+      <section id="changesView" class="view"></section>
+      <section id="watchlistView" class="view"></section>
+      <section id="researchView" class="view"></section>
+      <section id="readmeView" class="view"></section>
+    </main>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <h2>No matching data</h2>
+        <p>Try a broader search or adjust the investor/status filters.</p>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
