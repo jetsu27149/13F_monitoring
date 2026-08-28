@@ -11,6 +11,14 @@ supply keys, the optional market-data providers.
 
 ![The dashboard overview tab, running on sample data](docs/screenshot.png)
 
+The watchlist scores each position as a research queue and shows its reasoning,
+so a score is auditable rather than a black box:
+
+![The watchlist tab, showing priority scores and their score drivers](docs/watchlist.png)
+
+Both screenshots use `--sample` data, which is deterministic — clone the repo,
+run the sample command below, and you get exactly this.
+
 ## What it does
 
 - Discovers each investor's 13F filings through the SEC EDGAR submissions API.
