@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import re
@@ -965,7 +966,24 @@ def main() -> int:
 
     os.chdir(ROOT)
     load_env_file(ROOT / ".env")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), DashboardHandler)
+    try:
+        server = ThreadingHTTPServer(("127.0.0.1", args.port), DashboardHandler)
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        # An earlier server is still holding the port. Python does not reload
+        # code, so that process is serving whatever revision it started with --
+        # which shows up in the browser as endpoints 404ing for no clear reason.
+        print(
+            f"\n  Port {args.port} is already in use, most likely by an earlier dashboard server.\n"
+            "  That process is still serving the code it started with, so new endpoints\n"
+            "  will 404 until you replace it. Stop it and start again:\n\n"
+            f"    lsof -ti tcp:{args.port} | xargs kill\n"
+            f"    python3 scripts/dashboard_server.py --port {args.port}\n\n"
+            f"  Or leave it running and use another port: --port {args.port + 1}\n",
+            file=sys.stderr,
+        )
+        return 1
     url = f"http://127.0.0.1:{args.port}/dashboard/"
     print(f"Serving 13F dashboard at {url}")
     print("Optional env vars: OPENAI_API_KEY, OPENAI_MODEL, FMP_API_KEY, FINNHUB_API_KEY")
