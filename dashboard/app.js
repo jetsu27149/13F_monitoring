@@ -1331,6 +1331,51 @@ async function handleEarningsLookup(button) {
   }
 }
 
+// Every local API call goes through here. A bare response.json() on an HTML
+// error page throws an engine-specific parse error ("The string did not match
+// the expected pattern." in Safari), which tells the user nothing about the
+// actual problem -- usually a stale server process or one that was never
+// started. Read the body as text first and report what really came back.
+async function postJson(url, body) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+  } catch (error) {
+    throw new Error(
+      `cannot reach the local server. Start it with "python3 scripts/dashboard_server.py" and open the dashboard through it, not as a file:// page.`,
+    );
+  }
+
+  const text = await response.text();
+  let payload = null;
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      payload = null;
+    }
+  }
+
+  if (payload === null) {
+    if (response.status === 404) {
+      throw new Error(
+        `${url} returned 404. The running server predates this endpoint — restart scripts/dashboard_server.py to pick up the current code.`,
+      );
+    }
+    const snippet = text.slice(0, 120).replace(/\s+/g, " ").trim();
+    throw new Error(`${url} returned HTTP ${response.status} and a non-JSON body: ${snippet || "(empty)"}`);
+  }
+
+  if (!response.ok || payload.error) {
+    throw new Error(payload.error || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
 async function checkLatestFilings() {
   if (!state.data) return;
   const button = els.checkFilingsButton;
@@ -1341,18 +1386,10 @@ async function checkLatestFilings() {
   status.title = "";
 
   try {
-    const response = await fetch("/api/check-filings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        investor_slug: investorSelectionPayload().length === 1 ? investorSelectionPayload()[0] : "all",
-        investor_slugs: investorSelectionPayload(),
-      }),
+    const payload = await postJson("/api/check-filings", {
+      investor_slug: investorSelectionPayload().length === 1 ? investorSelectionPayload()[0] : "all",
+      investor_slugs: investorSelectionPayload(),
     });
-    const payload = await response.json();
-    if (!response.ok || payload.error) {
-      throw new Error(payload.error || `HTTP ${response.status}`);
-    }
 
     const results = payload.results || [];
     const newFilings = results.filter((item) => item.new_available);
@@ -1391,16 +1428,10 @@ async function downloadNewFilings(newFilings, status) {
   status.textContent = `${newFilings.length} new filing${newFilings.length === 1 ? "" : "s"} (${names}${extra}). Downloading...`;
 
   const slugs = newFilings.map((item) => item.investor_slug).filter(Boolean);
-  const start = await fetch("/api/refresh-filings", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      investor_slugs: slugs,
-      investor_slug: slugs.length === 1 ? slugs[0] : "all",
-    }),
-  }).then((response) => response.json());
-
-  if (start.error) throw new Error(start.error);
+  await postJson("/api/refresh-filings", {
+    investor_slugs: slugs,
+    investor_slug: slugs.length === 1 ? slugs[0] : "all",
+  });
 
   const summary = await pollRefresh(status);
   if (!summary) return;
@@ -1422,13 +1453,23 @@ async function pollRefresh(status) {
   // Rebuilding reads every cached filing, so this can run for minutes. Poll for
   // progress instead of holding one request open and risking a browser timeout.
   const deadline = Date.now() + 30 * 60 * 1000;
+  let consecutiveFailures = 0;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     let job;
     try {
-      job = await fetch("/api/refresh-status", { method: "POST" }).then((response) => response.json());
+      job = await postJson("/api/refresh-status", {});
+      consecutiveFailures = 0;
     } catch (error) {
-      continue; // transient, keep polling
+      // A single dropped poll is not fatal, but a persistent one means the
+      // server is gone or too old to know this endpoint. Say so rather than
+      // spinning silently until the deadline.
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= 5) {
+        status.textContent = `Lost contact with the server while downloading: ${error.message}`;
+        return null;
+      }
+      continue;
     }
     if (job.state === "running") {
       const percent = Math.round((job.progress || 0) * 100);
