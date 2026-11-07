@@ -26,3 +26,6 @@ data/
 
 # Scratch
 _to_delete/
+
+# Local double-click launchers
+*.command
