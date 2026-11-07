@@ -106,6 +106,23 @@ class RefreshStakesTests(unittest.TestCase):
         self.assertEqual(summary["stakes_new"], 0)
         self.assertEqual(self.client.document_calls, [])
 
+    def test_form4_inherits_own_fund_flag_from_the_same_issuers_13d(self):
+        from unittest import mock
+        import thirteenf.stakes as stakes_module
+        real = stakes_module.parse_form4
+
+        def form4_on_own_fund(xml_text):
+            parsed = real(xml_text)
+            parsed["issuer_cik"] = "0002122354"  # the issuer of the own-fund 13D fixture
+            parsed["issuer_name"] = "Some Vehicle LP"
+            return parsed
+
+        with mock.patch.object(stakes_module, "parse_form4", form4_on_own_fund):
+            refresh_stakes(client=self.client, investors=[ALPHA], root=self.tmp)
+        records = json.loads((self.tmp / "data" / "processed" / "stakes.json").read_text())["filings"]
+        form4 = next(r for r in records if r["kind"] == "4")
+        self.assertTrue(form4["affiliated"])
+
     def test_headlines_drop_amendments_own_funds_and_platform_books(self):
         refresh_stakes(client=self.client, investors=[ALPHA, BETA], root=self.tmp)
         records = json.loads((self.tmp / "data" / "processed" / "stakes.json").read_text())["filings"]

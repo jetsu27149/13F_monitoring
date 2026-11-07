@@ -118,7 +118,7 @@ whose implied price disagrees with every other holder's.
 During filing season you can have the Mac do this daily on its own:
 
 ```bash
-scripts/schedule/install_daily_refresh.sh     # daily at 18:41; HOUR=/MINUTE= to change
+scripts/schedule/install_daily_refresh.sh     # daily at 19:41, after EDGAR closes (10pm ET)
 tail -f data/logs/refresh.log                 # what each run did
 scripts/schedule/uninstall_daily_refresh.sh   # remove it
 ```

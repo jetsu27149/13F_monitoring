@@ -1,11 +1,15 @@
 #!/bin/bash
 # Install a daily macOS launchd job that runs the incremental 13F refresh.
 #
+# The default 19:41 is set for Pacific time: EDGAR stops accepting filings at
+# 10pm Eastern (7pm Pacific), so the run sees everything filed that day.
+# Elsewhere, pass a local time after 10pm Eastern via HOUR= and MINUTE=.
+#
 # Runs on this Mac because that is where SEC EDGAR is reachable; nothing needs
 # the dashboard server or a browser open. Uses the python3 on your PATH right
 # now, so activate the environment you normally use before running this.
 #
-#   scripts/schedule/install_daily_refresh.sh            # daily at 18:41
+#   scripts/schedule/install_daily_refresh.sh            # daily at 19:41
 #   HOUR=7 MINUTE=12 scripts/schedule/install_daily_refresh.sh
 #   DRY_RUN=1 scripts/schedule/install_daily_refresh.sh  # print the plist only
 set -euo pipefail
@@ -13,7 +17,7 @@ set -euo pipefail
 LABEL="local.13f-monitoring.refresh"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PYTHON="${PYTHON:-$(command -v python3)}"
-HOUR="${HOUR:-18}"
+HOUR="${HOUR:-19}"
 MINUTE="${MINUTE:-41}"
 LOG_DIR="$ROOT/data/logs"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"

@@ -282,6 +282,14 @@ def refresh_stakes(
             record["exit"] = entry["kind"] != "4" and record.get("percent") is not None and record["percent"] <= 5
             records.append(record)
 
+    # A Form 4 carries no ownership percentage, so it can't trip the majority
+    # rule on its own. If the same manager's 13D/13G marks an issuer as its own
+    # vehicle (Icahn and Icahn Enterprises), every filing on that issuer is.
+    own = {(r["investor_slug"], r.get("issuer_cik")) for r in records if r.get("affiliated") and r.get("issuer_cik")}
+    for r in records:
+        if (r["investor_slug"], r.get("issuer_cik")) in own:
+            r["affiliated"] = True
+
     records.sort(key=lambda r: (r["filing_date"], r["accession_number"]), reverse=True)
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
