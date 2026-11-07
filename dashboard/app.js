@@ -11,6 +11,8 @@ const state = {
   rowLimit: "24",
   holdingCategory: "equity",
   earningsCache: {},
+  stakes: null, // data/processed/stakes.json, loaded when the tab first opens
+  stakesFilter: "headline",
   sort: {
     holdings: { key: "weight", direction: "desc" },
     changes: { key: "active_weight", direction: "desc" },
@@ -226,6 +228,7 @@ const els = {
     investors: document.querySelector("#investorsView"),
     changes: document.querySelector("#changesView"),
     watchlist: document.querySelector("#watchlistView"),
+    stakes: document.querySelector("#stakesView"),
     research: document.querySelector("#researchView"),
     readme: document.querySelector("#readmeView"),
   },
@@ -442,6 +445,7 @@ function render() {
   if (state.view === "investors") renderInvestors();
   if (state.view === "changes") renderChanges();
   if (state.view === "watchlist") renderWatchlist();
+  if (state.view === "stakes") renderStakes();
   if (state.view === "research") renderResearch();
   if (state.view === "readme") renderReadme();
 }
@@ -1492,11 +1496,127 @@ async function reloadDashboardData() {
   state.baseData = await response.json();
   state.quarterCache = {};
   state.changeIndex = null;
+  state.stakes = null;
   state.reportDate = "latest";
   state.data = state.baseData;
   populateInvestorFilter();
   populateReportDateFilter();
   render();
+}
+
+// ---- Recent stakes: 13D / 13G / Form 4 ------------------------------------
+// Faster than 13F: a 13D is due within days of crossing 5% ownership and a
+// Form 4 within two business days, versus up to 45 days after quarter-end.
+
+const STAKE_FILTERS = {
+  headline: "New stakes: conviction managers",
+  schedules: "All 13D / 13G",
+  trades: "Form 4 trades",
+  all: "Everything (incl. own funds)",
+};
+
+async function loadStakes() {
+  try {
+    const response = await fetch("../data/processed/stakes.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    state.stakes = await response.json();
+  } catch (error) {
+    state.stakes = { filings: [], missing: true };
+  }
+}
+
+function filteredStakes() {
+  const search = state.search;
+  return (state.stakes?.filings || []).filter((r) => {
+    if (r.error && state.stakesFilter !== "all") return false;
+    if (!matchesInvestor(r)) return false;
+    if (search) {
+      const text = `${r.issuer_name || ""} ${r.ticker || ""} ${r.cusip || ""}`.toUpperCase();
+      if (!text.includes(search)) return false;
+    }
+    if (state.stakesFilter === "headline") {
+      return (r.kind === "13D" || r.kind === "13G") && !r.amendment && !r.affiliated && r.tier === "conviction";
+    }
+    if (state.stakesFilter === "schedules") return (r.kind === "13D" || r.kind === "13G") && !r.affiliated;
+    if (state.stakesFilter === "trades") return r.kind === "4" && !r.affiliated;
+    return true;
+  });
+}
+
+function stakeFlags(r) {
+  const pills = [];
+  if (r.error) pills.push('<span class="status-pill status-exited">Unreadable</span>');
+  if (r.affiliated) pills.push('<span class="status-pill status-reduced">Own fund</span>');
+  if (r.exit) pills.push('<span class="status-pill status-exited">Below 5%</span>');
+  else if (r.kind !== "4") pills.push(r.amendment
+    ? '<span class="status-pill status-added">Update</span>'
+    : '<span class="status-pill status-new">New</span>');
+  return pills.join(" ");
+}
+
+function stakeSize(r) {
+  if (r.kind === "4") {
+    if (r.net_shares == null) return "—";
+    const verb = r.net_shares >= 0 ? "Bought" : "Sold";
+    const value = r.net_value ? ` · ${formatMoney(Math.abs(r.net_value))}` : "";
+    return `${verb} ${formatNumber(Math.abs(r.net_shares))} sh${value}`;
+  }
+  const pct = Number.isFinite(Number(r.percent)) && r.percent !== null ? `${Number(r.percent).toFixed(1)}%` : "—";
+  const shares = r.shares ? ` · ${formatNumber(r.shares)} sh` : "";
+  return `${pct}${shares}`;
+}
+
+function renderStakes() {
+  if (state.stakes === null) {
+    els.views.stakes.innerHTML = '<section class="panel"><div class="panel-header"><div><h2>Recent Stakes</h2><p>Loading…</p></div></div></section>';
+    loadStakes().then(() => state.view === "stakes" && renderStakes());
+    return;
+  }
+  const rows = filteredStakes();
+  const meta = state.stakes;
+  const updated = meta.generated_at ? formatDateTime(meta.generated_at).replace("Updated ", "updated ") : "";
+  const options = Object.entries(STAKE_FILTERS)
+    .map(([key, label]) => `<option value="${key}" ${key === state.stakesFilter ? "selected" : ""}>${escapeHtml(label)}</option>`)
+    .join("");
+  const body = meta.missing
+    ? `<div class="empty-state"><p>No stake data yet. Run <strong>Refresh 13F data</strong> (or <code>python3 scripts/refresh_data.py --incremental</code>) to collect 13D, 13G and Form 4 filings.</p></div>`
+    : rows.length
+      ? `<div class="table-wrap"><table>
+          <thead><tr>
+            <th>Filed</th><th>Manager</th><th>Form</th><th>Issuer</th><th class="num">Stake / trade</th><th>Event</th><th>Flags</th><th></th>
+          </tr></thead>
+          <tbody>${rows.map((r) => `
+            <tr>
+              <td>${escapeHtml(r.filing_date)}</td>
+              <td>${escapeHtml(r.investor)}</td>
+              <td>${escapeHtml(r.form)}</td>
+              <td>${escapeHtml(r.issuer_name || "—")}${r.ticker ? ` <span class="muted">(${escapeHtml(r.ticker)})</span>` : ""}</td>
+              <td class="num">${stakeSize(r)}</td>
+              <td>${escapeHtml(r.event_date || "")}</td>
+              <td>${stakeFlags(r)}</td>
+              <td><a href="${escapeHtml(r.sec_url)}" target="_blank" rel="noreferrer">SEC</a></td>
+            </tr>`).join("")}
+          </tbody></table></div>`
+      : emptyState();
+  els.views.stakes.innerHTML = `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Recent Stakes (13D / 13G / Form 4)</h2>
+          <p>${formatNumber(rows.length)} of ${formatNumber((meta.filings || []).length)} filings in the last ${meta.lookback_days || 90} days${updated ? ` · ${escapeHtml(updated)}` : ""}.
+          These arrive weeks before the next 13F: a 13D within days of crossing 5%, a Form 4 within two business days.</p>
+        </div>
+        <label class="stakes-filter">Show
+          <select id="stakesFilterSelect">${options}</select>
+        </label>
+      </div>
+      ${body}
+    </section>`;
+  const select = document.querySelector("#stakesFilterSelect");
+  select?.addEventListener("change", (event) => {
+    state.stakesFilter = event.target.value;
+    renderStakes();
+  });
 }
 
 function filingCheckLine(item) {

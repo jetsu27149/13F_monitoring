@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D">
+  <formData>
+    <coverPageHeader>
+      <securitiesClassTitle>Common Shares of Beneficial Interest</securitiesClassTitle>
+      <dateOfEvent>11/03/2026</dateOfEvent>
+      <issuerInfo>
+        <issuerCIK>0002122354</issuerCIK>
+        <issuerCusips><issuerCusipNumber>0000000000</issuerCusipNumber></issuerCusips>
+        <issuerName>Alpha Capital Private Credit Fund</issuerName>
+      </issuerInfo>
+    </coverPageHeader>
+    <reportingPersons>
+      <reportingPersonInfo>
+        <reportingPersonName>Alpha Capital LP</reportingPersonName>
+        <aggregateAmountOwned>161000</aggregateAmountOwned>
+        <percentOfClass>100</percentOfClass>
+        <typeOfReportingPerson>OO</typeOfReportingPerson>
+      </reportingPersonInfo>
+    </reportingPersons>
+  </formData>
+</edgarSubmission>

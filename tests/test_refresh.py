@@ -65,6 +65,31 @@ INFO_TABLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+# Stake filings each fake investor's index lists, by accession -> fixture file.
+STAKE_DOCS = {
+    "0000000001-26-100001": ("SCHEDULE 13D", "schedule_13d.xml", 3),
+    "0000000001-26-100002": ("SCHEDULE 13D", "schedule_13d_own_fund.xml", 4),
+    "0000000001-26-100003": ("SCHEDULE 13G", "schedule_13g.xml", 5),
+    "0000000001-26-100004": ("SCHEDULE 13G/A", "schedule_13g_exit.xml", 6),
+    "0000000001-26-100005": ("4", "form4.xml", 7),
+}
+
+
+def fake_index(days_ago_offset: int = 0) -> dict:
+    """A submissions index with recent stake filings (dates relative to today)."""
+    from datetime import date, timedelta
+
+    accessions = list(STAKE_DOCS)
+    return {"filings": {"recent": {
+        "form": [STAKE_DOCS[a][0] for a in accessions] + ["13F-HR"],
+        "accessionNumber": accessions + ["0000000001-26-000009"],
+        "filingDate": [(date.today() - timedelta(days=STAKE_DOCS[a][2] + days_ago_offset)).isoformat() for a in accessions] + ["2026-08-14"],
+        "primaryDocument": [("xslF345X06/form4.xml" if STAKE_DOCS[a][0] == "4" else "xslSCHEDULE_13D_X02/primary_doc.xml") for a in accessions] + ["primary_doc.xml"],
+    }}}
+
+
 class FakeSecClient:
     """Stands in for SecClient. Records calls so tests can assert on them."""
 
@@ -75,7 +100,26 @@ class FakeSecClient:
         self.user_agent = user_agent
         self.filings_calls: list[str] = []
         self.table_calls: list[str] = []
+        self.document_calls: list[str] = []
         FakeSecClient.instances.append(self)
+
+    @staticmethod
+    def clean_cik(cik):
+        return str(cik).zfill(10)
+
+    def submissions(self, cik, refresh=False):
+        return fake_index()
+
+    def get_text(self, url, cache_key, refresh=False):
+        path = Path(self.cache_dir) / cache_key
+        if path.exists() and not refresh:
+            return path.read_text(encoding="utf-8")
+        accession = Path(cache_key).stem
+        self.document_calls.append(accession)
+        text = (FIXTURES / STAKE_DOCS[accession][1]).read_text(encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return text
 
     def recent_13f_filings(self, cik, limit=4, refresh=False):
         self.filings_calls.append(cik)

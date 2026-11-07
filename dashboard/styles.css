@@ -1139,3 +1139,20 @@ tbody tr:hover {
     flex-wrap: wrap;
   }
 }
+
+.stakes-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stakes-filter select {
+  min-width: 280px;
+}
+
+.muted {
+  color: var(--muted, #6b7280);
+  font-weight: 500;
+}

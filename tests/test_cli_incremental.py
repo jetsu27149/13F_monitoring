@@ -61,7 +61,8 @@ class IncrementalCliTests(unittest.TestCase):
         before = (self.tmp / "data" / "processed" / "dashboard.json").stat().st_mtime_ns
         code, out = self.run_cli()
         self.assertEqual(code, 0)
-        self.assertIn("Nothing new", out)
+        self.assertIn("No new 13F filings", out)
+        self.assertNotIn("Stake filings skipped", out)
         self.assertEqual(before, (self.tmp / "data" / "processed" / "dashboard.json").stat().st_mtime_ns)
 
     def test_refuses_to_run_with_placeholder_user_agent(self):

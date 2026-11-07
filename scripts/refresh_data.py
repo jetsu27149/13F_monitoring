@@ -153,7 +153,8 @@ def run_incremental(investors: list[dict[str, Any]], args: argparse.Namespace) -
     if summary.get("rebuilt"):
         print(f"Dashboard rebuilt: {summary.get('holdings')} latest holdings, {summary.get('watchlist')} watchlist names.")
     else:
-        print("Nothing new; dashboard left unchanged.")
+        print("No new 13F filings; dashboard holdings left unchanged.")
+    print_stakes(summary)
     problems = summary.get("errors", [])
     if problems:
         print(f"\nWarnings ({len(problems)}):")
@@ -161,6 +162,27 @@ def run_incremental(investors: list[dict[str, Any]], args: argparse.Namespace) -
             print(f"  - {problem}")
     # Per-investor problems are normal mid-season; only fail when nothing worked at all.
     return 1 if problems and not downloaded and len(problems) >= len(investors) else 0
+
+
+def print_stakes(summary: dict[str, Any]) -> None:
+    """Summarise the 13D/13G/Form 4 step, leading with outside stakes by conviction managers."""
+    from thirteenf.stakes import headline_stakes
+
+    if summary.get("stakes_total") is None:
+        return
+    print(f"\nStake filings (13D/13G/Form 4, last 90 days): {summary['stakes_total']}, {summary.get('stakes_new', 0)} newly opened.")
+    path = ROOT / "data" / "processed" / "stakes.json"
+    try:
+        records = json.loads(path.read_text(encoding="utf-8")).get("filings", [])
+    except (OSError, ValueError):
+        return
+    headlines = headline_stakes(records)[:10]
+    if headlines:
+        print("Newest outside stakes by conviction managers:")
+        for r in headlines:
+            pct = f"{r['percent']:.1f}%" if r.get("percent") is not None else "?"
+            flag = "  (dropped to 5% or less)" if r.get("exit") else ""
+            print(f"  {r['filing_date']}  {r['form']:<13} {r.get('investor', '')[:24]:<25} {str(r.get('issuer_name'))[:38]:<39} {pct}{flag}")
 
 
 def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) -> tuple[list[dict[str, Any]], list[str]]:

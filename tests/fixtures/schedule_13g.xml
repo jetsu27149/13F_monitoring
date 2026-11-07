@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13g">
+  <formData>
+    <coverPageHeader>
+      <securitiesClassTitle>Common Stock, par value $0.0001 per share</securitiesClassTitle>
+      <eventDateRequiresFilingThisStatement>11/04/2026</eventDateRequiresFilingThisStatement>
+      <issuerInfo>
+        <issuerCik>0001712189</issuerCik>
+        <issuerName>Target Hospitality Corp.</issuerName>
+        <issuerCusips><issuerCusipNumber>87615L107</issuerCusipNumber></issuerCusips>
+      </issuerInfo>
+    </coverPageHeader>
+    <coverPageHeaderReportingPersonDetails>
+      <reportingPersonName>Beta Partners LLC</reportingPersonName>
+      <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>5046156.00</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+      <classPercent>5.2</classPercent>
+      <typeOfReportingPerson>PN</typeOfReportingPerson>
+    </coverPageHeaderReportingPersonDetails>
+    <items><item5><notApplicableFlag>Y</notApplicableFlag></item5></items>
+  </formData>
+</edgarSubmission>

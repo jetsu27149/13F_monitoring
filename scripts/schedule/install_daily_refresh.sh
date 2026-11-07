@@ -12,7 +12,7 @@ set -euo pipefail
 
 LABEL="local.13f-monitoring.refresh"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PYTHON="$(command -v python3)"
+PYTHON="${PYTHON:-$(command -v python3)}"
 HOUR="${HOUR:-18}"
 MINUTE="${MINUTE:-41}"
 LOG_DIR="$ROOT/data/logs"

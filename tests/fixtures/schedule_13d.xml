@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D">
+  <headerData><submissionType>SCHEDULE 13D</submissionType></headerData>
+  <formData>
+    <coverPageHeader>
+      <securitiesClassTitle>Common Stock, par value $0.01 per share</securitiesClassTitle>
+      <dateOfEvent>10/28/2026</dateOfEvent>
+      <issuerInfo>
+        <issuerCIK>0000123456</issuerCIK>
+        <issuerCusips><issuerCusipNumber>00123X109</issuerCusipNumber></issuerCusips>
+        <issuerName>Acme Industrial Corp</issuerName>
+      </issuerInfo>
+    </coverPageHeader>
+    <reportingPersons>
+      <reportingPersonInfo>
+        <reportingPersonName>Alpha Capital LP</reportingPersonName>
+        <aggregateAmountOwned>4200000</aggregateAmountOwned>
+        <percentOfClass>7.4</percentOfClass>
+        <typeOfReportingPerson>PN</typeOfReportingPerson>
+      </reportingPersonInfo>
+      <reportingPersonInfo>
+        <reportingPersonName>Jane Alpha</reportingPersonName>
+        <aggregateAmountOwned>4250000</aggregateAmountOwned>
+        <percentOfClass>7.5</percentOfClass>
+        <typeOfReportingPerson>IN</typeOfReportingPerson>
+      </reportingPersonInfo>
+    </reportingPersons>
+  </formData>
+</edgarSubmission>

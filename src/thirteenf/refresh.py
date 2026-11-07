@@ -277,14 +277,20 @@ def run_incremental_refresh(
         for item in added:
             downloaded.append({**item, "investor": investor.get("investor"), "investor_slug": investor.get("slug")})
 
+    # 13D/13G/Form 4 arrive between 13F seasons, so check them on every run,
+    # across the whole registry. Each investor's filing index was re-fetched
+    # just above (or by the check that preceded this run), so reuse it.
+    stakes = run_stakes_step(root, investors, client, errors, progress)
+
     if not downloaded:
-        progress(1.0, "No new filings to download.")
+        progress(1.0, "No new 13F filings to download.")
         return {
             "downloaded": [],
             "errors": errors,
             "rebuilt": False,
             "filings_added": 0,
             "rows_added": 0,
+            **stakes,
         }
 
     progress(0.62, f"Downloaded {len(downloaded)} filing(s). Loading local history...")
@@ -309,7 +315,26 @@ def run_incremental_refresh(
         "rows_added": sum(item["rows"] for item in downloaded),
         "holdings": summary_counts[0],
         "watchlist": summary_counts[1],
+        **stakes,
     }
+
+
+def run_stakes_step(root: Path, investors: list[dict[str, Any]], client: SecClient, errors: list[str], progress: ProgressFn) -> dict[str, Any]:
+    """Refresh stakes.json; a failure here must not cost the 13F refresh."""
+    from thirteenf.stakes import refresh_stakes
+
+    try:
+        result = refresh_stakes(
+            client=client,
+            investors=investors_all(root, investors),
+            root=root,
+            progress=lambda f, m: progress(0.56 + 0.05 * f, m),
+        )
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"Stake filings skipped: {exc}")
+        return {"stakes_total": None, "stakes_new": 0}
+    errors.extend(result.pop("stakes_errors", []))
+    return result
 
 
 def investors_all(root: Path, fallback: list[dict[str, Any]]) -> list[dict[str, Any]]:

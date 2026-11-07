@@ -83,6 +83,36 @@ python3 scripts/refresh_data.py --incremental
 It reads `SEC_USER_AGENT` from `.env`, refuses to run without it, prints each
 filing it adds, and leaves the dashboard untouched when nothing is new.
 
+### Recent stakes: 13D, 13G and Form 4
+
+A 13F arrives up to 45 days after quarter-end. Large stakes surface sooner: a
+Schedule 13D is due within days of a manager crossing 5% of a company with
+intent to influence it, a 13G covers passive stakes above 5%, and a Form 4
+reports trades by 10%-plus owners within two business days.
+
+Every refresh also opens each new 13D, 13G and Form 4 filed by the tracked
+managers in the last 90 days and writes `data/processed/stakes.json`. The
+**Stakes** tab lists them, defaulting to new outside stakes by conviction
+managers. It flags amendments, drops below 5% (an exit from the disclosed
+stake), and filings for a manager's own funds, such as a seed investment in a
+fund it launched.
+
+Managers are tiered in `investors.json` (`conviction`, `platform`, `macro`).
+Platform and macro books trade thousands of names hedged or market-neutral, so
+both the Stakes tab and the quarter scan read their activity separately.
+
+### Quarter scan
+
+```bash
+python3 scripts/quarter_scan.py            # newest quarter on disk
+python3 scripts/quarter_scan.py 2026-09-30
+```
+
+Prints who has filed, how much each manager traded and how concentrated it
+is, conviction-tier new positions, adds, exits and big trims, names bought or
+sold by two or more conviction managers, and data checks such as positions
+whose implied price disagrees with every other holder's.
+
 ### Refreshing on a schedule (macOS)
 
 During filing season you can have the Mac do this daily on its own:
@@ -224,16 +254,19 @@ dashboard/          Static front end
   styles.css
   app.js
 scripts/
-  refresh_data.py       Full pull and rebuild of data/processed/
+  refresh_data.py       Full, incremental (--incremental) or offline (--rebuild) refresh
+  quarter_scan.py       Text report on the newest quarter
   dashboard_server.py   Local server, Research tab API, refresh jobs
 src/thirteenf/
   sec_client.py         EDGAR fetching and response caching
   parser.py             Information-table XML to holdings
   analytics.py          Deltas, concentration, watchlist scoring
   refresh.py            Incremental download and rebuild
+  stakes.py             13D / 13G / Form 4 parsing
   sample_data.py        Deterministic demo data for --sample runs
 tests/
-  test_refresh.py       Refresh logic against a stubbed SEC client
+  test_*.py             Refresh, amendments, stakes and CLI against a stubbed SEC client
+  fixtures/             Sample filings in EDGAR's 13D, 13G and Form 4 XML layouts
 investors.json      The registry of tracked filers
 data/                Generated, git-ignored
 ```
