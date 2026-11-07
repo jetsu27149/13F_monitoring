@@ -30,6 +30,31 @@ ProgressFn = Callable[[float, str], None]
 PLACEHOLDER_CONTACT = "contact@example.com"
 
 
+def load_env_file(path: Path) -> None:
+    """Load KEY=value lines from a .env file without overriding the real environment.
+
+    Both the dashboard server and the command-line refresh read keys this way, so
+    a scheduled job and a button click see the same SEC_USER_AGENT.
+    """
+    if not path.exists():
+        return
+    import os
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def noop_progress(fraction: float, message: str) -> None:
     """Default progress sink."""
 

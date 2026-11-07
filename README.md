@@ -74,8 +74,32 @@ The rebuild always runs across the full investor registry even when you refresh
 one filer, because concentration, shared ownership, and the watchlist are all
 cross-investor measures.
 
-`refresh_data.py` is still the tool for a cold start or a deliberate full
-re-pull.
+The same top-up runs from the terminal, with no server or browser open:
+
+```bash
+python3 scripts/refresh_data.py --incremental
+```
+
+It reads `SEC_USER_AGENT` from `.env`, refuses to run without it, prints each
+filing it adds, and leaves the dashboard untouched when nothing is new.
+
+### Refreshing on a schedule (macOS)
+
+During filing season you can have the Mac do this daily on its own:
+
+```bash
+scripts/schedule/install_daily_refresh.sh     # daily at 18:41; HOUR=/MINUTE= to change
+tail -f data/logs/refresh.log                 # what each run did
+scripts/schedule/uninstall_daily_refresh.sh   # remove it
+```
+
+The installer uses the `python3` on your PATH when you run it, so activate your
+usual environment first. A run missed while the Mac is asleep happens on wake.
+
+`refresh_data.py` without `--incremental` is still the tool for a cold start or
+a deliberate full re-pull. It now always re-fetches each investor's small
+filing index, so a full run sees filings made since the last one; before, a
+cached index silently hid them.
 
 **No data ships with this repo.** A full pull runs to roughly 1.6 GB, so `data/`
 is git-ignored and `refresh_data.py` is what populates it. Expect the first real
@@ -185,8 +209,9 @@ python3 -m unittest discover -s tests
 
 The suite covers the incremental refresh path with the SEC network edge stubbed:
 accession bookkeeping, skipping filings already on disk, the no-op second run,
-rebuilding across the full registry from a partial refresh, and surviving a
-corrupt cached file.
+rebuilding across the full registry from a partial refresh, surviving a
+corrupt cached file, and the command-line `--incremental` run (reading `.env`,
+refusing a placeholder user agent).
 
 ## Project layout
 

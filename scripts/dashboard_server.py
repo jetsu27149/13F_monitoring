@@ -36,7 +36,7 @@ from thirteenf.analytics import (
     totals_by_category as analytics_totals_by_category,
     turnover_proxy as analytics_turnover_proxy,
 )
-from thirteenf.refresh import run_incremental_refresh, user_agent_looks_unset
+from thirteenf.refresh import load_env_file, run_incremental_refresh, user_agent_looks_unset
 from thirteenf.sec_client import SecClient, SecClientError
 
 
@@ -54,24 +54,6 @@ REFRESH_STATE: dict[str, Any] = {
     "summary": None,
     "error": None,
 }
-
-
-def load_env_file(path: Path) -> None:
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[len("export ") :].strip()
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip().strip("\"'")
-        if key and key not in os.environ:
-            os.environ[key] = value
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):

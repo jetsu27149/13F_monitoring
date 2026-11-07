@@ -14,7 +14,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from thirteenf.analytics import build_dashboard_data
 from thirteenf.parser import parse_information_table
-from thirteenf.refresh import flatten_row, write_csv, write_json
+from thirteenf.refresh import (
+    flatten_row,
+    load_env_file,
+    run_incremental_refresh,
+    user_agent_looks_unset,
+    write_csv,
+    write_json,
+)
 from thirteenf.sample_data import generate_sample_holdings
 from thirteenf.sec_client import SecClient, SecClientError
 
@@ -23,9 +30,24 @@ DEFAULT_USER_AGENT = "13F Monitoring local dashboard contact@example.com"
 
 
 def main() -> int:
+    # Before argument parsing: --user-agent's default reads SEC_USER_AGENT, and a
+    # scheduled job has no shell profile, so .env is the only place it can come from.
+    load_env_file(ROOT / ".env")
+
     parser = argparse.ArgumentParser(description="Refresh 13F dashboard data from SEC EDGAR.")
     parser.add_argument("--investors", default=ROOT / "investors.json", type=Path)
-    parser.add_argument("--quarters", default=20, type=int, help="Number of recent report periods per investor.")
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Download only filings missing from data/raw, then rebuild. The same path as the dashboard's "
+        "Check filings button; needs no server or browser, so it suits a scheduled job.",
+    )
+    parser.add_argument(
+        "--quarters",
+        default=None,
+        type=int,
+        help="Recent report periods per investor (default 20 for a full pull, 4 for --incremental).",
+    )
     parser.add_argument("--refresh-cache", action="store_true", help="Re-fetch SEC responses even when cached.")
     parser.add_argument("--sample", action="store_true", help="Generate deterministic demo data instead of live SEC data.")
     parser.add_argument("--allow-empty", action="store_true", help="Write an empty dashboard when no rows are fetched.")
@@ -35,6 +57,11 @@ def main() -> int:
 
     investors = load_investors(args.investors)
     errors: list[str] = []
+
+    if args.incremental:
+        return run_incremental(investors, args)
+    if args.quarters is None:
+        args.quarters = 20
 
     if args.sample:
         holdings = generate_sample_holdings(investors)
@@ -70,6 +97,48 @@ def main() -> int:
     return 0 if holdings else 1
 
 
+def run_incremental(investors: list[dict[str, Any]], args: argparse.Namespace) -> int:
+    """Command-line twin of the dashboard's Check filings button."""
+    if user_agent_looks_unset(args.user_agent):
+        print(
+            "SEC_USER_AGENT is not set. SEC rejects clients without a working contact address.\n"
+            'Add SEC_USER_AGENT="13F Monitoring local dashboard <your email>" to .env and rerun.'
+        )
+        return 2
+
+    quarters = args.quarters or 4
+    last = {"message": ""}
+
+    def progress(fraction: float, message: str) -> None:
+        if message != last["message"]:
+            last["message"] = message
+            print(f"[{fraction:>4.0%}] {message}", flush=True)
+
+    summary = run_incremental_refresh(
+        root=ROOT,
+        investors=investors,
+        user_agent=args.user_agent,
+        quarters=quarters,
+        progress=progress,
+    )
+
+    downloaded = summary.get("downloaded", [])
+    print(f"\nFilings added: {len(downloaded)}")
+    for item in sorted(downloaded, key=lambda d: (d["report_date"], d.get("investor") or "")):
+        print(f"  {item['report_date']}  {item.get('investor')}  ({item['rows']} rows, filed {item['filing_date']})")
+    if summary.get("rebuilt"):
+        print(f"Dashboard rebuilt: {summary.get('holdings')} latest holdings, {summary.get('watchlist')} watchlist names.")
+    else:
+        print("Nothing new; dashboard left unchanged.")
+    problems = summary.get("errors", [])
+    if problems:
+        print(f"\nWarnings ({len(problems)}):")
+        for problem in problems:
+            print(f"  - {problem}")
+    # Per-investor problems are normal mid-season; only fail when nothing worked at all.
+    return 1 if problems and not downloaded and len(problems) >= len(investors) else 0
+
+
 def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) -> tuple[list[dict[str, Any]], list[str]]:
     client = SecClient(
         cache_dir=ROOT / "data" / "cache",
@@ -80,14 +149,16 @@ def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) ->
 
     for investor in investors:
         try:
-            filings = client.recent_13f_filings(
-                investor["cik"],
-                limit=args.quarters,
-                refresh=args.refresh_cache,
-            )
+            # Always re-fetch the submissions index: it is one small file per
+            # investor, and a cached copy silently hides every filing made since.
+            filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=True)
         except (SecClientError, OSError) as exc:
-            errors.append(f"{investor['investor']}: could not load submissions: {exc}")
-            continue
+            try:
+                filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=False)
+                errors.append(f"{investor['investor']}: SEC unreachable ({exc}); used cached filing list.")
+            except (SecClientError, OSError, ValueError):
+                errors.append(f"{investor['investor']}: could not load submissions: {exc}")
+                continue
 
         if not filings:
             errors.append(f"{investor['investor']}: no recent 13F filings found.")
