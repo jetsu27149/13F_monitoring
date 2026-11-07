@@ -16,7 +16,10 @@ from thirteenf.analytics import build_dashboard_data
 from thirteenf.parser import parse_information_table
 from thirteenf.refresh import (
     flatten_row,
+    investors_all,
     load_env_file,
+    load_local_rows,
+    rebuild_outputs,
     run_incremental_refresh,
     user_agent_looks_unset,
     write_csv,
@@ -43,6 +46,11 @@ def main() -> int:
         "Check filings button; needs no server or browser, so it suits a scheduled job.",
     )
     parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="Rebuild the dashboard from filings already in data/raw without contacting SEC.",
+    )
+    parser.add_argument(
         "--quarters",
         default=None,
         type=int,
@@ -58,6 +66,8 @@ def main() -> int:
     investors = load_investors(args.investors)
     errors: list[str] = []
 
+    if args.rebuild:
+        return run_rebuild()
     if args.incremental:
         return run_incremental(investors, args)
     if args.quarters is None:
@@ -95,6 +105,20 @@ def main() -> int:
         for error in errors:
             print(f"- {error}")
     return 0 if holdings else 1
+
+
+def run_rebuild() -> int:
+    """Regenerate dashboard.json and the CSVs from data/raw. No network."""
+    rows, errors = load_local_rows(ROOT)
+    if not rows:
+        print("No filings found under data/raw; nothing to rebuild.")
+        return 1
+    dashboard = rebuild_outputs(ROOT, investors_all(ROOT, []), rows, errors=errors)
+    print(f"Rebuilt from {len(rows)} holding rows: {len(dashboard['holdings'])} latest holdings, "
+          f"{len(dashboard['watchlist'])} watchlist names.")
+    for error in errors:
+        print(f"  - {error}")
+    return 0
 
 
 def run_incremental(investors: list[dict[str, Any]], args: argparse.Namespace) -> int:

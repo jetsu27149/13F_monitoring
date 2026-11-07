@@ -98,13 +98,19 @@ def local_accessions(root: Path) -> dict[str, set[str]]:
 
 
 def load_local_rows(root: Path, progress: ProgressFn = noop_progress) -> tuple[list[dict[str, Any]], list[str]]:
-    """Load every already-parsed holding row from data/raw."""
-    rows: list[dict[str, Any]] = []
+    """Load every already-parsed holding row from data/raw, one filing set per quarter.
+
+    A manager can file more than once for the same quarter: an original 13F-HR
+    and later 13F-HR/A amendments. Each lands as its own file, so loading them
+    all would count that quarter twice. Resolve them per (manager, report date):
+    see resolve_amendments.
+    """
     errors: list[str] = []
     base = raw_dir(root)
     if not base.is_dir():
-        return rows, errors
+        return [], errors
 
+    groups: dict[tuple[str, str], list[list[dict[str, Any]]]] = defaultdict(list)
     paths = sorted(path for slug_dir in base.iterdir() if slug_dir.is_dir() for path in slug_dir.glob("*.json"))
     total = len(paths) or 1
     for index, path in enumerate(paths):
@@ -113,11 +119,36 @@ def load_local_rows(root: Path, progress: ProgressFn = noop_progress) -> tuple[l
         except (OSError, ValueError) as exc:
             errors.append(f"Could not read cached filing {path.name}: {exc}")
             continue
-        if isinstance(data, list):
-            rows.extend(data)
+        if isinstance(data, list) and data:
+            report_date = path.stem.partition("_")[0]
+            groups[(path.parent.name, report_date)].append(data)
         if index % 25 == 0:
             progress(index / total, f"Loading local filings ({index}/{total})")
+
+    rows: list[dict[str, Any]] = []
+    for filings in groups.values():
+        rows.extend(resolve_amendments(filings))
     return rows, errors
+
+
+def resolve_amendments(filings: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Combine one manager's filings for one quarter into a single set of rows.
+
+    Filings are applied in filing-date order. A 13F-HR/A is either a
+    restatement, which replaces the whole report, or a "new holdings"
+    amendment, which only adds positions left out of the original. The type
+    sits in the filing's cover page, which is not stored here, so it is
+    inferred from size: an amendment with at least half the rows of what it
+    amends is treated as a restatement, anything smaller as additions.
+    """
+    ordered = sorted(filings, key=lambda rows: (rows[0].get("filing_date") or "", rows[0].get("accession_number") or ""))
+    current = list(ordered[0])
+    for later in ordered[1:]:
+        if len(later) >= 0.5 * len(current):
+            current = list(later)
+        else:
+            current.extend(later)
+    return current
 
 
 def enrich_rows(investor: dict[str, Any], filing: Any, parsed_rows: Iterable[dict[str, Any]], info_table_file: str) -> list[dict[str, Any]]:

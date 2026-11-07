@@ -96,6 +96,9 @@ scripts/schedule/uninstall_daily_refresh.sh   # remove it
 The installer uses the `python3` on your PATH when you run it, so activate your
 usual environment first. A run missed while the Mac is asleep happens on wake.
 
+`python3 scripts/refresh_data.py --rebuild` regenerates the dashboard from the
+filings already in `data/raw` without contacting SEC.
+
 `refresh_data.py` without `--incremental` is still the tool for a cold start or
 a deliberate full re-pull. It now always re-fetches each investor's small
 filing index, so a full run sees filings made since the last one; before, a
