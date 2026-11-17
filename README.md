@@ -58,6 +58,30 @@ The dashboard lives at `http://127.0.0.1:8013/dashboard/`. On macOS the server
 opens it in a new Google Chrome window; everywhere else it prints the URL for
 you to open yourself. Pass `--no-open` to skip the launch entirely.
 
+## Hosted snapshot (GitHub Pages)
+
+A read-only copy of the dashboard is published from `docs/` with GitHub Pages:
+`https://<you>.github.io/13F_monitoring/`. It needs no Python and no server.
+
+GitHub Pages serves static files only, and the local `dashboard.json` is about
+100 MB, over GitHub's file limit. So the hosted copy runs on a trimmed
+snapshot: every position of the conviction-tier managers, and the 100 largest
+positions per book for the platform and macro funds, whose tens of thousands
+of rows are most of the file. Per-manager totals, counts and history are
+computed from the full filings before trimming. Features that need the local
+server are hidden there: Check filings, the Research tab, earnings lookups,
+and browsing earlier quarters.
+
+To publish or update it after a refresh:
+
+```bash
+python3 scripts/build_pages.py     # writes docs/index.html, app.js, styles.css, snapshot/
+git add docs && git commit -m "Publish snapshot" && git push
+```
+
+One-time setup: repository **Settings → Pages → Deploy from a branch →
+`main`, folder `/docs`**. The page updates a minute or two after each push.
+
 ## Keeping data current
 
 The **Check filings** button asks SEC EDGAR whether each selected investor has
@@ -256,6 +280,7 @@ dashboard/          Static front end
 scripts/
   refresh_data.py       Full, incremental (--incremental) or offline (--rebuild) refresh
   quarter_scan.py       Text report on the newest quarter
+  build_pages.py        Builds the static GitHub Pages site into docs/
   dashboard_server.py   Local server, Research tab API, refresh jobs
 src/thirteenf/
   sec_client.py         EDGAR fetching and response caching
@@ -268,6 +293,7 @@ tests/
   test_*.py             Refresh, amendments, stakes and CLI against a stubbed SEC client
   fixtures/             Sample filings in EDGAR's 13D, 13G and Form 4 XML layouts
 investors.json      The registry of tracked filers
+docs/                The published GitHub Pages site (built), plus README images
 data/                Generated, git-ignored
 ```
 

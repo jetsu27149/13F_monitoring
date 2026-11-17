@@ -1156,3 +1156,17 @@ tbody tr:hover {
   color: var(--muted, #6b7280);
   font-weight: 500;
 }
+
+.notice {
+  border-left: 4px solid var(--teal);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: rgba(34, 108, 115, 0.08);
+  font-size: 13px;
+}
+
+.snapshot-note {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted, #6b7280);
+}

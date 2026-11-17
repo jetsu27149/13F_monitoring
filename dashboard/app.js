@@ -1,3 +1,10 @@
+// Set by the static GitHub Pages build (scripts/build_pages.py). When present
+// there is no local server: data comes from a committed snapshot, and features
+// that need the server's API are hidden rather than left to fail.
+const STATIC_SITE = window.DASHBOARD_STATIC || null;
+const DATA_URL = STATIC_SITE ? `${STATIC_SITE.dataBase}dashboard.json` : "../data/processed/dashboard.json";
+const STAKES_URL = STATIC_SITE ? `${STATIC_SITE.dataBase}stakes.json` : "../data/processed/stakes.json";
+
 const state = {
   baseData: null,
   data: null,
@@ -236,8 +243,9 @@ const els = {
 
 async function init() {
   bindEvents();
+  if (STATIC_SITE) applyStaticSite();
   try {
-    const response = await fetch("../data/processed/dashboard.json", { cache: "no-store" });
+    const response = await fetch(DATA_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.baseData = await response.json();
     state.data = state.baseData;
@@ -339,8 +347,38 @@ function populateInvestorFilter() {
   syncInvestorFilterSelection();
 }
 
+// Hosted snapshot: no server, so no Check filings, no Research tab (its
+// lookups call the local API) and no per-quarter rebuilds from raw filings.
+function applyStaticSite() {
+  document.body.classList.add("static-site");
+  document.querySelector('.tab[data-view="research"]')?.remove();
+  const control = document.querySelector(".filing-check-control");
+  if (control) {
+    control.innerHTML = `
+      <span class="control-label">Data</span>
+      <span class="snapshot-note">Public snapshot. Clone the repo to refresh from SEC and browse earlier quarters.</span>`;
+  }
+  els.reportDateFilter.disabled = true;
+  els.reportDateFilter.title = "The hosted snapshot carries the latest quarter. Run the dashboard locally to browse earlier quarters.";
+  const actions = document.querySelector(".topbar-actions");
+  if (actions && STATIC_SITE.repoUrl) {
+    const link = document.createElement("a");
+    link.className = "source-link";
+    link.href = STATIC_SITE.repoUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = "Source on GitHub";
+    actions.prepend(link);
+  }
+}
+
+function snapshotBanner() {
+  const note = STATIC_SITE && state.data?.metadata?.snapshot?.note;
+  return note ? `<div class="notice">${escapeHtml(note)}</div>` : "";
+}
+
 function populateReportDateFilter() {
-  const dates = [...new Set((state.baseData?.reports || []).map((report) => report.report_date).filter(Boolean))].sort().reverse();
+  const dates = STATIC_SITE ? [] : [...new Set((state.baseData?.reports || []).map((report) => report.report_date).filter(Boolean))].sort().reverse();
   const options = [
     `<option value="latest">Latest available</option>`,
     ...dates.map((date) => `<option value="${escapeAttribute(date)}">${escapeHtml(reportQuarterLabel(date))}</option>`),
@@ -434,7 +472,12 @@ function render() {
   const data = state.data;
   if (!data) return;
 
-  const mode = data.metadata.mode === "sample" ? `<span class="mode-pill">Sample data</span>` : "";
+  const mode =
+    data.metadata.mode === "sample"
+      ? `<span class="mode-pill">Sample data</span>`
+      : STATIC_SITE
+        ? `<span class="mode-pill">Public snapshot</span>`
+        : "";
   const reportContext =
     state.reportDate === "latest"
       ? "Latest available reports"
@@ -462,6 +505,7 @@ function renderOverview() {
 
   els.views.overview.innerHTML = `
     ${warnings.length ? `<div class="warning">${warningSummary(warnings)}</div>` : ""}
+    ${snapshotBanner()}
     <div class="metric-grid">
       ${metricCard(valueMetricLabel(), formatMoney(totalValue), valueMetricNote())}
       ${metricCard("Investors", formatNumber(investors.length), reportMetricNote(latestReports))}
@@ -866,8 +910,12 @@ function pastEarningsWatch(rows) {
   }
   return `
     <div class="earnings-actions">
-      <button type="button" data-earnings-load-all>Load visible ER</button>
-      <span>Uses FMP_API_KEY on the local server.</span>
+      ${
+        STATIC_SITE
+          ? "<span>Earnings lookups run on the local server. Use Search here.</span>"
+          : `<button type="button" data-earnings-load-all>Load visible ER</button>
+      <span>Uses FMP_API_KEY on the local server.</span>`
+      }
     </div>
     <div class="earnings-list">
       ${rows.map(pastEarningsRow).join("")}
@@ -886,10 +934,10 @@ function pastEarningsRow(row) {
         <span>${escapeHtml(symbol)} · ${formatPercent(activeWeight(row))} · ${formatMoney(row.value_usd)}</span>
       </div>
       <div class="earnings-row-actions">
-        <button type="button" data-earnings-symbol="${escapeAttribute(symbol)}">Past ER</button>
+        ${STATIC_SITE ? "" : `<button type="button" data-earnings-symbol="${escapeAttribute(symbol)}">Past ER</button>`}
         <a class="source-link compact-link" href="${escapeAttribute(searchUrl)}" target="_blank" rel="noreferrer">Search</a>
       </div>
-      <div class="earnings-result" data-earnings-result="${escapeAttribute(symbol)}">Not loaded</div>
+      ${STATIC_SITE ? "" : `<div class="earnings-result" data-earnings-result="${escapeAttribute(symbol)}">Not loaded</div>`}
     </div>
   `;
 }
@@ -1491,7 +1539,7 @@ async function pollRefresh(status) {
 }
 
 async function reloadDashboardData() {
-  const response = await fetch("../data/processed/dashboard.json", { cache: "no-store" });
+  const response = await fetch(DATA_URL, { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   state.baseData = await response.json();
   state.quarterCache = {};
@@ -1517,7 +1565,7 @@ const STAKE_FILTERS = {
 
 async function loadStakes() {
   try {
-    const response = await fetch("../data/processed/stakes.json", { cache: "no-store" });
+    const response = await fetch(STAKES_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     state.stakes = await response.json();
   } catch (error) {
@@ -1579,7 +1627,9 @@ function renderStakes() {
     .map(([key, label]) => `<option value="${key}" ${key === state.stakesFilter ? "selected" : ""}>${escapeHtml(label)}</option>`)
     .join("");
   const body = meta.missing
-    ? `<div class="empty-state"><p>No stake data yet. Run <strong>Refresh 13F data</strong> (or <code>python3 scripts/refresh_data.py --incremental</code>) to collect 13D, 13G and Form 4 filings.</p></div>`
+    ? STATIC_SITE
+      ? `<div class="empty-state"><p>This snapshot was published without stake data.</p></div>`
+      : `<div class="empty-state"><p>No stake data yet. Run <strong>Refresh 13F data</strong> (or <code>python3 scripts/refresh_data.py --incremental</code>) to collect 13D, 13G and Form 4 filings.</p></div>`
     : rows.length
       ? `<div class="table-wrap"><table>
           <thead><tr>
@@ -1992,6 +2042,13 @@ function overviewMetricValue(holdings, changes) {
   if (state.status === "exited") {
     return sum(changes.map((item) => item.previous_value_usd));
   }
+  // The hosted snapshot carries only each manager's largest rows, so summing
+  // them would understate the books. Per-manager totals come from the full
+  // filings; use them whenever no search is narrowing the rows.
+  if (STATIC_SITE && state.status === "all" && !state.search) {
+    const field = { equity: "equity_value_usd", option: "option_value_usd" }[state.holdingCategory] || "total_value_usd";
+    return sum(filteredInvestors().map((item) => item[field]));
+  }
   return sum(holdings.map((item) => item.value_usd));
 }
 
@@ -2007,6 +2064,7 @@ function valueMetricNote() {
   if (state.status === "reduced") return `Disclosed value decrease for reduced ${categoryTitle().toLowerCase()} rows`;
   if (state.status === "exited") return `Prior value of exited ${categoryTitle().toLowerCase()} rows`;
   if (state.status !== "all") return `Current value of ${holdingMatchLabel()}`;
+  if (STATIC_SITE && !state.search) return `${categoryTitle()} value from the full filings`;
   return `${categoryTitle()} value after all current filters`;
 }
 
