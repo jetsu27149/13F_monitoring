@@ -68,14 +68,17 @@ GitHub Pages serves static files only, and the local `dashboard.json` is about
 snapshot: every position of the conviction-tier managers, and the 100 largest
 positions per book for the platform and macro funds, whose tens of thousands
 of rows are most of the file. Per-manager totals, counts and history are
-computed from the full filings before trimming. Features that need the local
-server are hidden there: Check filings, the Research tab, earnings lookups,
-and browsing earlier quarters.
+computed from the full filings before trimming. The Quarter menu offers the
+last eight report quarters, each pre-built into its own file
+(`docs/snapshot/quarters/`), since there is no server to rebuild one on
+request. Features that need the local server are hidden there: Check filings,
+the Research tab and earnings lookups.
 
 To publish or update it after a refresh:
 
 ```bash
 python3 scripts/build_pages.py     # writes docs/index.html, app.js, styles.css, snapshot/
+                                   # --quarters N to change the menu; unchanged quarters are skipped
 git add docs && git commit -m "Publish snapshot" && git push
 ```
 
@@ -106,6 +109,16 @@ python3 scripts/refresh_data.py --incremental
 
 It reads `SEC_USER_AGENT` from `.env`, refuses to run without it, prints each
 filing it adds, and leaves the dashboard untouched when nothing is new.
+
+Each quarter keeps every filing: the original 13F-HR and any 13F-HR/A
+amendments, combined when the dashboard is built. A small amendment usually
+lists only positions the original left out, so keeping just the newest filing
+would lose the rest of the report. To fetch any filings an older version of
+this tool skipped, run once:
+
+```bash
+python3 scripts/refresh_data.py --incremental --backfill
+```
 
 ### Recent stakes: 13D, 13G and Form 4
 

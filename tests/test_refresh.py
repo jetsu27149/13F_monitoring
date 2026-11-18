@@ -121,7 +121,7 @@ class FakeSecClient:
         path.write_text(text, encoding="utf-8")
         return text
 
-    def recent_13f_filings(self, cik, limit=4, refresh=False):
+    def recent_13f_filings(self, cik, limit=4, refresh=False, **kwargs):
         self.filings_calls.append(cik)
         return [
             FakeFiling("0000000001-26-000009", "2026-06-30", "2026-08-14"),

@@ -190,7 +190,7 @@ def download_missing_filings(
     added: list[dict[str, Any]] = []
 
     try:
-        filings = client.recent_13f_filings(investor["cik"], limit=quarters, refresh=True)
+        filings = client.recent_13f_filings(investor["cik"], limit=quarters, refresh=True, latest_per_period=False)
     except (SecClientError, OSError) as exc:
         errors.append(f"{investor['investor']}: could not load submissions: {exc}")
         return added

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
 import csv
 import json
 import os
@@ -20,6 +21,7 @@ from thirteenf.refresh import (
     load_env_file,
     load_local_rows,
     rebuild_outputs,
+    resolve_amendments,
     run_incremental_refresh,
     user_agent_looks_unset,
     write_csv,
@@ -44,6 +46,12 @@ def main() -> int:
         action="store_true",
         help="Download only filings missing from data/raw, then rebuild. The same path as the dashboard's "
         "Check filings button; needs no server or browser, so it suits a scheduled job.",
+    )
+    parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="With --incremental: check every quarter already on disk, not just the last few, for filings "
+        "that were never downloaded (such as an original report later followed by an amendment).",
     )
     parser.add_argument(
         "--rebuild",
@@ -131,6 +139,12 @@ def run_incremental(investors: list[dict[str, Any]], args: argparse.Namespace) -
         return 2
 
     quarters = args.quarters or 4
+    if args.backfill:
+        from thirteenf.quarters import available_report_dates
+
+        # Reach back past the oldest quarter on disk, plus a little slack.
+        quarters = max(quarters, len(available_report_dates(ROOT)) + 2)
+        print(f"Backfill: checking the last {quarters} report periods for every manager.")
     last = {"message": ""}
 
     def progress(fraction: float, message: str) -> None:
@@ -197,10 +211,10 @@ def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) ->
         try:
             # Always re-fetch the submissions index: it is one small file per
             # investor, and a cached copy silently hides every filing made since.
-            filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=True)
+            filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=True, latest_per_period=False)
         except (SecClientError, OSError) as exc:
             try:
-                filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=False)
+                filings = client.recent_13f_filings(investor["cik"], limit=args.quarters, refresh=False, latest_per_period=False)
                 errors.append(f"{investor['investor']}: SEC unreachable ({exc}); used cached filing list.")
             except (SecClientError, OSError, ValueError):
                 errors.append(f"{investor['investor']}: could not load submissions: {exc}")
@@ -210,6 +224,7 @@ def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) ->
             errors.append(f"{investor['investor']}: no recent 13F filings found.")
             continue
 
+        by_period: dict[str, list[list[dict[str, Any]]]] = defaultdict(list)
         for filing in filings:
             try:
                 xml_text, info_table_file = client.information_table_xml(filing, refresh=args.refresh_cache)
@@ -234,9 +249,14 @@ def fetch_holdings(investors: list[dict[str, Any]], args: argparse.Namespace) ->
                     "sec_url": filing.sec_url,
                     **row,
                 }
-                holdings.append(enriched)
                 raw_rows.append(enriched)
             write_json(raw_path, raw_rows)
+            if raw_rows:
+                by_period[filing.report_date].append(raw_rows)
+
+        # An original plus its amendments make one quarter, not several.
+        for period_filings in by_period.values():
+            holdings.extend(resolve_amendments(period_filings))
 
     return holdings, errors
 

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
+import json
+import os
+import shutil
 import sys
+import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -63,6 +69,60 @@ class StaticIndexTests(unittest.TestCase):
         self.assertIn('"dataBase": "./snapshot/"', html)
         self.assertIn('property="og:title"', html)
         self.assertEqual(html.count('src="./app.js"'), 1)
+
+
+class PublishQuartersTests(unittest.TestCase):
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "tests"))
+        from test_quarters import QuarterTests  # reuse its synthetic filings
+
+        self.fixture = QuarterTests("test_report_dates_are_listed_once_newest_first")
+        self.fixture.setUp()
+        self.root = self.fixture.root
+        self.saved = (build_pages.ROOT, build_pages.QUARTERS_DIR)
+        build_pages.ROOT = self.root
+        build_pages.QUARTERS_DIR = self.root / "docs" / "snapshot" / "quarters"
+        self.dashboard = {"metadata": {"mode": "live"}, "investors": []}
+        self.args = argparse.Namespace(quarters=2, force=False, platform_limit=100)
+
+    def tearDown(self):
+        build_pages.ROOT, build_pages.QUARTERS_DIR = self.saved
+        self.fixture.tearDown()
+
+    def publish(self):
+        return build_pages.publish_quarters(self.dashboard, lambda slug: 400, self.args)
+
+    def test_writes_one_trimmed_file_per_quarter(self):
+        self.assertEqual(self.publish(), ["2026-06-30", "2026-03-31"])
+        q2 = json.loads((build_pages.QUARTERS_DIR / "2026-06-30.json").read_text())
+        self.assertEqual(q2["metadata"]["selected_report_date"], "2026-06-30")
+        self.assertIn("2026-06-30 quarter", q2["metadata"]["snapshot"]["note"])
+        self.assertNotIn("reports", q2)
+        self.assertTrue(all("sec_url" not in h and "figi" not in h for h in q2["holdings"]))
+
+    def test_unchanged_quarters_are_not_rebuilt(self):
+        self.publish()
+        q1 = build_pages.QUARTERS_DIR / "2026-03-31.json"
+        q2 = build_pages.QUARTERS_DIR / "2026-06-30.json"
+        before = (q1.stat().st_mtime_ns, q2.stat().st_mtime_ns)
+        time.sleep(0.05)
+        self.publish()
+        self.assertEqual(before, (q1.stat().st_mtime_ns, q2.stat().st_mtime_ns))
+
+    def test_a_changed_filing_rebuilds_its_quarter_and_later_ones_only(self):
+        self.publish()
+        q1 = build_pages.QUARTERS_DIR / "2026-03-31.json"
+        q2 = build_pages.QUARTERS_DIR / "2026-06-30.json"
+        old = time.time() - 3600
+        for raw in (self.root / "data" / "raw").rglob("*.json"):
+            os.utime(raw, (old - 3600, old - 3600))  # filings predate the published files
+        for f in (q1, q2):
+            os.utime(f, (old, old))
+        beta_q2 = self.root / "data" / "raw" / "beta" / "2026-06-30_B1.json"
+        os.utime(beta_q2, None)  # a Q2 filing changed after the files were written
+        self.publish()
+        self.assertAlmostEqual(q1.stat().st_mtime, old, delta=1)   # Q1 untouched
+        self.assertGreater(q2.stat().st_mtime, old + 60)            # Q2 rebuilt
 
 
 if __name__ == "__main__":

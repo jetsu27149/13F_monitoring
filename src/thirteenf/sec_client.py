@@ -101,7 +101,16 @@ class SecClient:
         limit: int = 8,
         include_amendments: bool = True,
         refresh: bool = False,
+        latest_per_period: bool = True,
     ) -> list[Filing]:
+        """13F filings for the `limit` most recent report periods, newest first.
+
+        With latest_per_period (the default) each period yields only its most
+        recent filing, which is what "is there anything newer?" needs. To store
+        a quarter, pass latest_per_period=False: a 13F-HR/A is often a "new
+        holdings" amendment listing only positions the original left out, so
+        keeping just the amendment loses the rest of the report.
+        """
         cik10 = self.clean_cik(cik)
         data = self.submissions(cik10, refresh=refresh)
         recent = data.get("filings", {}).get("recent", {})
@@ -131,6 +140,15 @@ class SecClient:
                     archive_dir=archive_dir,
                     sec_url=sec_url,
                 )
+            )
+
+        if not latest_per_period:
+            periods = sorted({filing.report_date for filing in filings}, reverse=True)[:limit]
+            keep = set(periods)
+            return sorted(
+                (filing for filing in filings if filing.report_date in keep),
+                key=lambda item: (item.report_date, item.filing_date, item.accession_number),
+                reverse=True,
             )
 
         latest_by_report_date: dict[str, Filing] = {}

@@ -32,7 +32,7 @@ class FakeSecClient:
         self.cache_dir = cache_dir
         self.user_agent = user_agent
 
-    def recent_13f_filings(self, cik, limit=4, refresh=False):
+    def recent_13f_filings(self, cik, limit=4, refresh=False, **kwargs):
         return [
             FakeFiling("0000000001-26-000009", "2026-06-30", "2026-08-14"),
             FakeFiling("0000000001-26-000005", "2026-03-31", "2026-05-15"),

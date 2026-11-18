@@ -24,18 +24,7 @@ DATA_DIR = ROOT / "data"
 DEFAULT_USER_AGENT = "13F Monitoring local dashboard contact@example.com"
 sys.path.insert(0, str(ROOT / "src"))
 
-from thirteenf.analytics import (
-    aggregate_positions as analytics_aggregate_positions,
-    build_watchlist as analytics_build_watchlist,
-    change_sort_key as analytics_change_sort_key,
-    compare_positions as analytics_compare_positions,
-    count_statuses as analytics_count_statuses,
-    pattern_summary as analytics_pattern_summary,
-    ratio as analytics_ratio,
-    summarize_report as analytics_summarize_report,
-    totals_by_category as analytics_totals_by_category,
-    turnover_proxy as analytics_turnover_proxy,
-)
+from thirteenf.quarters import build_quarter, load_report, report_files
 from thirteenf.refresh import load_env_file, run_incremental_refresh, user_agent_looks_unset
 from thirteenf.sec_client import SecClient, SecClientError
 
@@ -371,147 +360,8 @@ def handle_quarter(payload: dict[str, Any]) -> dict[str, Any]:
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", report_date):
         return {"error": "Choose a valid report date."}
     if report_date not in QUARTER_CACHE:
-        QUARTER_CACHE[report_date] = build_quarter_dashboard(report_date)
+        QUARTER_CACHE[report_date] = build_quarter(ROOT, report_date)
     return QUARTER_CACHE[report_date]
-
-
-def build_quarter_dashboard(report_date: str) -> dict[str, Any]:
-    investors = load_json(ROOT / "investors.json")
-    base_dashboard = load_json(DATA_DIR / "processed" / "dashboard.json")
-    base_by_slug = {item.get("slug"): item for item in base_dashboard.get("investors", [])}
-    investor_summaries: list[dict[str, Any]] = []
-    selected_holdings: list[dict[str, Any]] = []
-    selected_changes: list[dict[str, Any]] = []
-    lifecycle_rows: list[dict[str, Any]] = []
-
-    for investor in investors:
-        reports = load_raw_reports(investor["slug"])
-        lifecycle_rows.extend(row for report in reports for row in report["rows"] if (report.get("report_date") or "") <= report_date)
-        current_index = next((index for index, report in enumerate(reports) if report.get("report_date") == report_date), None)
-        if current_index is None:
-            continue
-
-        current_report = reports[current_index]
-        previous_report = reports[current_index + 1] if current_index + 1 < len(reports) else None
-        current_rows = current_report["rows"]
-        previous_rows = previous_report["rows"] if previous_report else []
-
-        current_positions = analytics_aggregate_positions(current_rows)
-        previous_positions = analytics_aggregate_positions(previous_rows)
-        current_total = sum_number(position["value_usd"] for position in current_positions.values())
-        current_category_totals = analytics_totals_by_category(current_positions)
-
-        for position in sorted(current_positions.values(), key=lambda item: item["value_usd"], reverse=True):
-            category_total = current_category_totals[position["category"]]
-            selected_holdings.append(
-                {
-                    **position,
-                    "investor_slug": investor["slug"],
-                    "investor": investor["investor"],
-                    "manager": investor["manager"],
-                    "report_date": report_date,
-                    "filing_date": current_report.get("filing_date"),
-                    "sec_url": current_report.get("sec_url"),
-                    "weight": analytics_ratio(position["value_usd"], current_total),
-                    "category_weight": analytics_ratio(position["value_usd"], category_total),
-                    "category_total_usd": category_total,
-                }
-            )
-
-        changes = analytics_compare_positions(
-            investor,
-            current_positions,
-            previous_positions,
-            report_date,
-            previous_report.get("report_date") if previous_report else None,
-        )
-        selected_changes.extend(changes)
-        investor_summaries.append(
-            quarter_investor_summary(
-                investor,
-                base_by_slug.get(investor["slug"], {}),
-                current_rows,
-                previous_rows,
-                current_report,
-                previous_report,
-                changes,
-            )
-        )
-
-    watchlist = analytics_build_watchlist(selected_holdings, selected_changes, lifecycle_rows)
-    return {
-        "metadata": {
-            **base_dashboard.get("metadata", {}),
-            "selected_report_date": report_date,
-            "selected_holding_rows": len(selected_holdings),
-            "selected_change_rows": len(selected_changes),
-            "selected_investor_count": len(investor_summaries),
-        },
-        "investors": sorted(investor_summaries, key=lambda item: item["investor"]),
-        "holdings": sorted(selected_holdings, key=lambda item: item["weight"], reverse=True),
-        "changes": sorted(selected_changes, key=analytics_change_sort_key),
-        "watchlist": watchlist,
-    }
-
-
-def quarter_investor_summary(
-    investor: dict[str, Any],
-    base: dict[str, Any],
-    current_rows: list[dict[str, Any]],
-    previous_rows: list[dict[str, Any]],
-    current_report: dict[str, Any],
-    previous_report: dict[str, Any] | None,
-    changes: list[dict[str, Any]],
-) -> dict[str, Any]:
-    report = analytics_summarize_report(investor, current_report["report_date"], current_rows)
-    previous_summary = (
-        analytics_summarize_report(investor, previous_report["report_date"], previous_rows)
-        if previous_report
-        else {}
-    )
-    status_counts = analytics_count_statuses(changes)
-    turnover = analytics_turnover_proxy(
-        changes,
-        report.get("total_value_usd"),
-        previous_summary.get("total_value_usd"),
-    )
-    concentration_delta = report.get("top_10_concentration", 0) - previous_summary.get("top_10_concentration", 0)
-    return {
-        "slug": investor["slug"],
-        "investor": investor["investor"],
-        "manager": investor["manager"],
-        "cik": investor["cik"],
-        "style": investor.get("style"),
-        "notes": investor.get("notes"),
-        "dataroma_url": investor.get("dataroma_url"),
-        "sec_company_url": f"https://www.sec.gov/edgar/browse/?CIK={int(investor['cik'])}",
-        "latest_report_date": report.get("report_date"),
-        "latest_filing_date": report.get("filing_date"),
-        "latest_sec_url": report.get("sec_url"),
-        "total_value_usd": report.get("total_value_usd", 0),
-        "equity_value_usd": report.get("equity_value_usd", 0),
-        "option_value_usd": report.get("option_value_usd", 0),
-        "holding_count": report.get("holding_count", 0),
-        "option_count": report.get("option_count", 0),
-        "non_option_count": report.get("non_option_count", 0),
-        "unique_issuer_count": report.get("unique_issuer_count", 0),
-        "unique_non_option_issuer_count": report.get("unique_non_option_issuer_count", 0),
-        "top_5_concentration": report.get("top_5_concentration", 0),
-        "top_10_concentration": report.get("top_10_concentration", 0),
-        "latest_change_counts": status_counts,
-        "average_new_positions": base.get("average_new_positions", 0),
-        "average_exits": base.get("average_exits", 0),
-        "turnover_proxy": turnover,
-        "concentration_delta": concentration_delta,
-        "parsed_rows": len(current_rows),
-        "pattern_summary": analytics_pattern_summary(
-            report.get("holding_count", 0),
-            report.get("top_10_concentration", 0),
-            status_counts,
-            turnover,
-            concentration_delta,
-        ),
-    }
 
 
 def requested_investor_slugs(payload: dict[str, Any]) -> list[str] | None:
@@ -626,15 +476,15 @@ def build_filing_context(investor_slugs: list[str] | None, quarters: int, catego
 
 
 def load_raw_reports(slug: str) -> list[dict[str, Any]]:
-    report_dir = DATA_DIR / "raw" / slug
+    """One entry per quarter for a manager, newest first, amendments applied."""
     reports = []
-    for path in sorted(report_dir.glob("*.json"), reverse=True):
-        rows = load_json(path)
+    for report_date, paths in report_files(ROOT).get(slug, {}).items():
+        rows = load_report(paths)
         if not rows:
             continue
         reports.append(
             {
-                "report_date": rows[0].get("report_date"),
+                "report_date": report_date,
                 "filing_date": rows[0].get("filing_date"),
                 "sec_url": rows[0].get("sec_url"),
                 "rows": rows,

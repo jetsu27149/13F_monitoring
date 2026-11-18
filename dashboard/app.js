@@ -347,8 +347,8 @@ function populateInvestorFilter() {
   syncInvestorFilterSelection();
 }
 
-// Hosted snapshot: no server, so no Check filings, no Research tab (its
-// lookups call the local API) and no per-quarter rebuilds from raw filings.
+// Hosted snapshot: no server, so no Check filings and no Research tab (its
+// lookups call the local API). Earlier quarters come from pre-built files.
 function applyStaticSite() {
   document.body.classList.add("static-site");
   document.querySelector('.tab[data-view="research"]')?.remove();
@@ -356,10 +356,8 @@ function applyStaticSite() {
   if (control) {
     control.innerHTML = `
       <span class="control-label">Data</span>
-      <span class="snapshot-note">Public snapshot. Clone the repo to refresh from SEC and browse earlier quarters.</span>`;
+      <span class="snapshot-note">Public snapshot. Clone the repo to refresh from SEC and use the research tools.</span>`;
   }
-  els.reportDateFilter.disabled = true;
-  els.reportDateFilter.title = "The hosted snapshot carries the latest quarter. Run the dashboard locally to browse earlier quarters.";
   const actions = document.querySelector(".topbar-actions");
   if (actions && STATIC_SITE.repoUrl) {
     const link = document.createElement("a");
@@ -378,7 +376,14 @@ function snapshotBanner() {
 }
 
 function populateReportDateFilter() {
-  const dates = STATIC_SITE ? [] : [...new Set((state.baseData?.reports || []).map((report) => report.report_date).filter(Boolean))].sort().reverse();
+  // The hosted snapshot can only offer the quarters it published files for.
+  const dates = STATIC_SITE
+    ? [...(state.baseData?.metadata?.snapshot?.quarters || [])].sort().reverse()
+    : [...new Set((state.baseData?.reports || []).map((report) => report.report_date).filter(Boolean))].sort().reverse();
+  if (STATIC_SITE && !dates.length) {
+    els.reportDateFilter.disabled = true;
+    els.reportDateFilter.title = "This snapshot was published without earlier quarters.";
+  }
   const options = [
     `<option value="latest">Latest available</option>`,
     ...dates.map((date) => `<option value="${escapeAttribute(date)}">${escapeHtml(reportQuarterLabel(date))}</option>`),
@@ -408,11 +413,13 @@ async function loadReportDate(reportDate) {
   els.dataStatus.textContent = `Loading ${reportQuarterLabel(state.reportDate)}...`;
   els.reportDateFilter.disabled = true;
   try {
-    const response = await fetch("/api/quarter", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_date: state.reportDate }),
-    });
+    const response = STATIC_SITE
+      ? await fetch(`${STATIC_SITE.dataBase}quarters/${encodeURIComponent(state.reportDate)}.json`)
+      : await fetch("/api/quarter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report_date: state.reportDate }),
+        });
     const payload = await response.json();
     if (!response.ok || payload.error) throw new Error(payload.error || `HTTP ${response.status}`);
     state.quarterCache[state.reportDate] = payload;
@@ -421,7 +428,11 @@ async function loadReportDate(reportDate) {
     render();
   } catch (error) {
     els.dataStatus.innerHTML = previousStatus;
-    alert(`Could not load ${reportQuarterLabel(state.reportDate)}. Start/restart the dashboard server with scripts/dashboard_server.py --port 8013.\n\n${error.message}`);
+    alert(
+      STATIC_SITE
+        ? `Could not load ${reportQuarterLabel(state.reportDate)} from this snapshot.\n\n${error.message}`
+        : `Could not load ${reportQuarterLabel(state.reportDate)}. Start/restart the dashboard server with scripts/dashboard_server.py --port 8013.\n\n${error.message}`,
+    );
     state.reportDate = "latest";
     els.reportDateFilter.value = "latest";
     state.data = state.baseData;

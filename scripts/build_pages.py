@@ -6,7 +6,8 @@ server. GitHub Pages can do neither: it serves static files, and GitHub
 rejects files over 100 MB. This writes a self-contained site:
 
     docs/index.html, app.js, styles.css   the dashboard front end, in static mode
-    docs/snapshot/dashboard.json          the latest quarter, trimmed
+    docs/snapshot/dashboard.json          each manager's latest filing, trimmed
+    docs/snapshot/quarters/<date>.json    recent report quarters, for the Quarter menu
     docs/snapshot/stakes.json             recent 13D / 13G / Form 4 filings
 
 Trimming keeps every position of the conviction-tier managers (capped per
@@ -14,6 +15,10 @@ book) and the largest positions of the platform and macro books, whose tens
 of thousands of rows are most of the file and the least informative part.
 Per-manager totals, counts and history are computed from the full data
 before trimming, so those figures stay exact.
+
+Quarter files are rebuilt only when a filing for that quarter or an earlier
+one has changed since the file was written, so a routine publish after a
+refresh only rebuilds the newest quarter. --force rebuilds them all.
 
     python3 scripts/build_pages.py
     git add docs && git commit -m "Publish snapshot" && git push
@@ -33,16 +38,25 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from thirteenf.quarters import available_report_dates, build_quarters, report_files  # noqa: E402
+
 DOCS = ROOT / "docs"
 SNAPSHOT = DOCS / "snapshot"
+QUARTERS_DIR = SNAPSHOT / "quarters"
 MAX_FILE_MB = 45  # GitHub warns at 50 MB and rejects at 100 MB.
-DROP_FIELDS = {"value_thousands"}  # not read by the front end
+# Row fields the front end never reads. Holdings and changes repeat them on
+# every row, so dropping them is most of the gap between 13 MB and 9 MB.
+DROP_FIELDS = {"value_thousands", "figi", "share_type", "category_total_usd", "sec_url", "filing_date"}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the static GitHub Pages site into docs/.")
     parser.add_argument("--conviction-limit", type=int, default=400, help="Positions kept per conviction manager, per book.")
     parser.add_argument("--platform-limit", type=int, default=100, help="Positions kept per platform or macro manager, per book.")
+    parser.add_argument("--quarters", type=int, default=8, help="Recent report quarters to publish for the Quarter menu (0 for none).")
+    parser.add_argument("--force", action="store_true", help="Rebuild every quarter file, even unchanged ones.")
     args = parser.parse_args()
 
     source = ROOT / "data" / "processed" / "dashboard.json"
@@ -78,6 +92,8 @@ def main() -> int:
     }
 
     SNAPSHOT.mkdir(parents=True, exist_ok=True)
+    published = publish_quarters(dashboard, limit_for, args)
+    snapshot["metadata"]["snapshot"]["quarters"] = published
     write_min(SNAPSHOT / "dashboard.json", snapshot)
     stakes = ROOT / "data" / "processed" / "stakes.json"
     if stakes.exists():
@@ -103,6 +119,51 @@ def main() -> int:
         return 1
     print(f"Holdings kept: {kept:,} of {full:,}. Next: git add docs && git commit && git push")
     return 0
+
+
+def publish_quarters(dashboard: dict[str, Any], limit_for, args: argparse.Namespace) -> list[str]:
+    """Write a trimmed snapshot per recent quarter; return the dates now published."""
+    wanted = available_report_dates(ROOT)[: max(args.quarters, 0)]
+    QUARTERS_DIR.mkdir(parents=True, exist_ok=True)
+    files = report_files(ROOT)
+
+    def source_mtime(report_date: str) -> float:
+        # A quarter's file depends on that quarter's filings and, through the
+        # watchlist history charts, on every earlier one.
+        return max((p.stat().st_mtime for dates in files.values() for d, paths in dates.items() if d <= report_date for p in paths), default=0)
+
+    stale = [d for d in wanted if args.force or not (QUARTERS_DIR / f"{d}.json").exists()
+             or (QUARTERS_DIR / f"{d}.json").stat().st_mtime < source_mtime(d)]
+    if stale:
+        print(f"Building {len(stale)} quarter file(s): {', '.join(stale)}")
+        for report_date, payload in build_quarters(ROOT, stale, dashboard).items():
+            quarter = trim(payload, limit_for)
+            kept, full = len(quarter["holdings"]), len(payload["holdings"])
+            quarter["metadata"] = {
+                **payload["metadata"],
+                "snapshot": {
+                    "report_date": report_date,
+                    "full_holding_rows": full,
+                    "kept_holding_rows": kept,
+                    "note": (
+                        f"Snapshot of the {report_date} quarter: the {len(quarter['investors'])} managers that filed for it, "
+                        f"every conviction-tier position and the top {args.platform_limit} per book for platform and macro funds "
+                        f"({kept:,} of {full:,} rows). Totals on the Investors tab use the full filings."
+                    ),
+                },
+            }
+            quarter.pop("reports", None)  # the page keeps the base snapshot's report history
+            write_min(QUARTERS_DIR / f"{report_date}.json", quarter)
+    else:
+        print("Quarter files are up to date.")
+
+    for old in QUARTERS_DIR.glob("*.json"):
+        if old.stem not in wanted:
+            try:
+                old.unlink()
+            except OSError as exc:
+                print(f"Could not remove old quarter file {old.name}: {exc}")
+    return [d for d in wanted if (QUARTERS_DIR / f"{d}.json").exists()]
 
 
 def trim(dashboard: dict[str, Any], limit_for) -> dict[str, Any]:
@@ -136,7 +197,7 @@ def trim(dashboard: dict[str, Any], limit_for) -> dict[str, Any]:
 
     return {
         "investors": dashboard["investors"],
-        "reports": dashboard["reports"],
+        "reports": dashboard.get("reports", []),
         "holdings": holdings,
         "changes": changes,
         "watchlist": dashboard["watchlist"],
