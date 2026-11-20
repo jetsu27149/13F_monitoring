@@ -82,12 +82,12 @@
   {
     "slug": "pershing-square",
     "investor": "Bill Ackman",
-    "manager": "PERSHING SQUARE CAPITAL MANAGEMENT, L.P.",
-    "cik": "0001336528",
+    "manager": "PERSHING SQUARE INC.",
+    "cik": "0002026053",
     "style": "Highly concentrated activist/value-quality",
     "tier": "conviction",
     "dataroma_url": "https://www.dataroma.com/m/home.php",
-    "notes": "Portfolio is very concentrated; 13F should be paired with Pershing Square letters/presentations."
+    "notes": "Updated to CIK 0002026053 (PERSHING SQUARE INC.) starting Q2 2026 after NYSE listing; prior CIK 0001336528 (PERSHING SQUARE CAPITAL MANAGEMENT, L.P.) now files 13F-NT notices. Portfolio is very concentrated; pair 13F with Pershing Square letters/presentations."
   },
   {
     "slug": "duquesne",
@@ -322,12 +322,12 @@
   {
     "slug": "greenlight",
     "investor": "Greenlight Capital",
-    "manager": "GREENLIGHT CAPITAL INC",
-    "cik": "0001079114",
+    "manager": "DME Capital Management, LP",
+    "cik": "0001489933",
     "style": "David Einhorn, value and special situations with opportunistic hedging",
     "tier": "conviction",
     "dataroma_url": null,
-    "notes": "13F should be paired with Greenlight letters and company-specific filings because shorts, hedges, and thesis details are not visible."
+    "notes": "Updated to CIK 0001489933 (DME Capital Management, LP); prior CIK 0001079114 (GREENLIGHT CAPITAL INC) stopped filing 13F-HR after Q4 2023. Pair 13F with Greenlight letters because shorts, hedges, and thesis details are not visible."
   },
   {
     "slug": "oaktree",
@@ -337,7 +337,7 @@
     "style": "Howard Marks, credit, distressed, special situations and opportunistic value",
     "tier": "conviction",
     "dataroma_url": null,
-    "notes": "13F is only a public-equity window into Oaktree; credit, distressed debt, private investments, real assets, derivatives, shorts, cash, and most macro/credit exposures are outside 13F."
+    "notes": "Note: For Q3 2026, Oaktree filed a 13F-NT notice under CIK 0000949509; holdings are reported inside Brookfield Corporation combined 13F-HR/A (as Included Manager #7 alongside Oaktree Fund Advisors #8). 13F is only a public-equity window into Oaktree; credit, distressed debt, private investments, real assets, derivatives, shorts, and cash are outside 13F."
   },
   {
     "slug": "renaissance",
