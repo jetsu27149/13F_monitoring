@@ -947,6 +947,7 @@ function pastEarningsRow(row) {
       <div class="earnings-row-actions">
         ${STATIC_SITE ? "" : `<button type="button" data-earnings-symbol="${escapeAttribute(symbol)}">Past ER</button>`}
         <a class="source-link compact-link" href="${escapeAttribute(searchUrl)}" target="_blank" rel="noreferrer">Search</a>
+        ${tipranksUrl(symbol) ? `<a class="source-link compact-link" href="${escapeAttribute(tipranksUrl(symbol))}" target="_blank" rel="noreferrer">TipRanks</a>` : ""}
       </div>
       ${STATIC_SITE ? "" : `<div class="earnings-result" data-earnings-result="${escapeAttribute(symbol)}">Not loaded</div>`}
     </div>
@@ -977,7 +978,7 @@ function holdingsTable(rows) {
               (row) => `
                 <tr>
                   <td>${escapeHtml(row.investor)}</td>
-                  <td>${escapeHtml(issuerLabel(row))}</td>
+                  <td>${issuerWithTipRanks(row)}</td>
                   <td>${statusPill(row.status || "held")}</td>
                   <td>${escapeHtml(row.cusip || "")}</td>
                   <td class="num">${formatMoney(row.value_usd)}</td>
@@ -1018,7 +1019,7 @@ function changesTable(rows) {
               (row) => `
                 <tr>
                   <td>${escapeHtml(row.investor)}</td>
-                  <td>${escapeHtml(issuerLabel(row))}</td>
+                  <td>${issuerWithTipRanks(row)}</td>
                   <td>${statusPill(row.status)}</td>
                   <td class="num">${formatMoney(row.current_value_usd)}</td>
                   <td class="num">${formatMoney(row.value_delta_usd)}</td>
@@ -1042,7 +1043,7 @@ function watchCard(item) {
     <article class="watch-card">
       <div class="watch-head">
         <div>
-          <h3>${escapeHtml(issuerLabel(item))}</h3>
+          <h3>${issuerWithTipRanks(item)}</h3>
           <p>${escapeHtml(item.cusip || "")} ${escapeHtml(item.title_of_class || "")}</p>
         </div>
         <div class="watch-score" title="Research priority score: new buys, adds, shared ownership, meaningful portfolio weight, and large disclosed value increase this number.">
@@ -1963,6 +1964,19 @@ function issuerLabel(item) {
   const issuer = String(item.issuer || "");
   const ticker = primaryTickerFor(item);
   return ticker ? `${issuer} (${ticker})` : issuer;
+}
+
+function tipranksUrl(ticker) {
+  const clean = String(ticker || "").trim().toLowerCase().replace(/[^a-z0-9.-]/g, "");
+  return clean ? `https://www.tipranks.com/stocks/${encodeURIComponent(clean)}/forecast` : "";
+}
+
+function issuerWithTipRanks(item) {
+  const base = escapeHtml(issuerLabel(item));
+  const ticker = primaryTickerFor(item);
+  const url = tipranksUrl(ticker);
+  if (!url) return base;
+  return `${base} <a class="source-link compact-link" href="${escapeAttribute(url)}" target="_blank" rel="noreferrer" title="Open ${escapeAttribute(ticker)} on TipRanks">TipRanks</a>`;
 }
 
 function normalizeTickerQuery(value) {

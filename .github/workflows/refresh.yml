@@ -1,0 +1,54 @@
+name: Refresh 13F Snapshot
+
+on:
+  schedule:
+    # Daily at 03:00 UTC (~7:00 PM PST / 8:00 PM PDT, after SEC EDGAR closes at 10:00 PM ET)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Restore cached SEC 13F data
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: 13f-data-${{ hashFiles('investors.json') }}-${{ github.run_id }}
+          restore-keys: |
+            13f-data-${{ hashFiles('investors.json') }}-
+            13f-data-
+
+      - name: Pull new SEC 13F filings
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: python3 scripts/refresh_data.py --incremental --quarters 8
+
+      - name: Rebuild GitHub Pages snapshot
+        run: python3 scripts/build_pages.py
+
+      - name: Commit and push updated snapshot
+        run: |
+          if [ -n "$(git status --porcelain docs)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs
+            git commit -m "Publish 13F snapshot $(date -u +%F)"
+            git push
+          else
+            echo "Snapshot unchanged; nothing to commit."
+          fi
