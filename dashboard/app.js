@@ -28,6 +28,21 @@ const state = {
 
 const TICKER_ALIAS_BY_CUSIP = {
   "00724F101": ["ADBE"],
+  "15101Q207": ["CLS"],
+  "219948106": ["CPAY"],
+  "231021106": ["CMI"],
+  "235851102": ["DHR"],
+  "315616102": ["FFIV"],
+  "35137L105": ["FOXA"],
+  "42824C109": ["HPE"],
+  "57636Q104": ["MA"],
+  "781154109": ["RBRK"],
+  "79466L302": ["CRM"],
+  "82509L107": ["SHOP"],
+  "87305R109": ["TTMI"],
+  "89679M104": ["TFPM"],
+  "922475108": ["VEEV"],
+  "N97284108": ["NBIS"],
   "007903107": ["AMD"],
   "009066101": ["ABNB"],
   "009158106": ["APD"],
@@ -1974,9 +1989,14 @@ function tipranksUrl(ticker) {
 function issuerWithTipRanks(item) {
   const base = escapeHtml(issuerLabel(item));
   const ticker = primaryTickerFor(item);
-  const url = tipranksUrl(ticker);
-  if (!url) return base;
-  return `${base} <a class="source-link compact-link" href="${escapeAttribute(url)}" target="_blank" rel="noreferrer" title="Open ${escapeAttribute(ticker)} on TipRanks">TipRanks</a>`;
+  const directUrl = tipranksUrl(ticker);
+  if (directUrl) {
+    return `${base} <a class="source-link compact-link" href="${escapeAttribute(directUrl)}" target="_blank" rel="noreferrer" title="Open ${escapeAttribute(ticker)} on TipRanks">TipRanks</a>`;
+  }
+  const issuer = String(item.issuer || "").trim();
+  if (!issuer) return base;
+  const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(`site:tipranks.com/stocks ${issuer}`)}`;
+  return `${base} <a class="source-link compact-link" href="${escapeAttribute(fallbackUrl)}" target="_blank" rel="noreferrer" title="Find ${escapeAttribute(issuer)} on TipRanks">TipRanks</a>`;
 }
 
 function normalizeTickerQuery(value) {
